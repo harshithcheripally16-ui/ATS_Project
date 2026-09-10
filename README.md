@@ -21,12 +21,14 @@ An end-to-end, production-ready recruitment and applicant tracking platform buil
 
 ## 1. Demo
 
-When running locally, the platform serves both the frontend web applications and interactive backend services:
+🌐 **Live Demo Website**: [https://ats-recruitment-portal.onrender.com](https://ats-recruitment-portal.onrender.com)  
+📑 **Live API Documentation (Swagger UI)**: [https://ats-recruitment-portal.onrender.com/api/docs](https://ats-recruitment-portal.onrender.com/api/docs)  
 
-- **Web Application Portal**: `http://127.0.0.1:5000/`
-- **Interactive OpenAPI / Swagger UI**: `http://127.0.0.1:5000/api/docs`
+> 🚀 **1-Click Free Cloud Deployment (Render)**:  
+> This repository is pre-configured with `render.yaml` and `Procfile`. You can deploy your own instance to Render's free tier in 1 click:  
+> [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/harshithcheripally16-ui/ATS_Project)
 
-### Default Pre-Configured Seed Accounts
+### Default Pre-Configured Demo Accounts
 
 | Role | Email | Password | Primary Capabilities |
 |---|---|---|---|
@@ -34,7 +36,15 @@ When running locally, the platform serves both the frontend web applications and
 | **Recruiter** | `recruiter@ats.com` | `RecruiterPass123!` | Job posting, applicant pipeline management, interview scheduling, offer letters |
 | **Candidate** | `candidate@ats.com` | `CandidatePass123!` | Job search, resume upload, application tracking, offer letter review & acceptance |
 
-> Candidates and recruiters can also self-register at `http://127.0.0.1:5000/pages/register.html` with automated OTP/email verification.
+> Candidates and recruiters can also self-register at `/pages/register.html` with automated OTP/email verification.
+
+### Local Development Demo
+
+When running locally (`python run.py`), access the application at:
+- **Application Portal**: `http://127.0.0.1:5000/`
+- **Interactive Swagger Docs**: `http://127.0.0.1:5000/api/docs`
+- **Recruiter Applicants Review**: `http://127.0.0.1:5000/pages/recruiter/applicants.html`
+- **Candidate Job Openings**: `http://127.0.0.1:5000/pages/jobs.html`
 
 ---
 

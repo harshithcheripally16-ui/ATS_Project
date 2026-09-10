@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ats-recruitment-portal
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn run:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ACCESS_TOKEN_EXPIRES_HOURS
+        value: "24"
