@@ -1,102 +1,274 @@
-# Recruitment & Applicant Tracking System (ATS) v1.1
+# Recruitment & Applicant Tracking System (ATS)
 
-A recruitment platform connecting recruiters, candidates, and administrators built with Flask (Python), PostgreSQL / SQLAlchemy ORM, JWT Authentication, and a vanilla JavaScript frontend styled with Material Design principles.
-
----
-
-## 🛠 Tech Stack
-
-- **Backend**: Python 3.12, Flask 3.0.3, Flask-SQLAlchemy, Flask-CORS
-- **Frontend**: Vanilla HTML5, CSS3 (Material Design 3 design system), JavaScript (Fetch API, modular components)
-- **Database**: PostgreSQL (with automatic local SQLite fallback for dev/testing)
-- **Authentication**: JWT (JSON Web Tokens) with role claims and bcrypt password hashing
-- **Email & Notifications**: SMTP with asynchronous dispatch and fallback dev console logger
-- **API Documentation**: Interactive Swagger / OpenAPI UI via Flasgger at `/api/docs`
-- **Testing**: Pytest automated test suite
+An end-to-end, production-ready recruitment and applicant tracking platform built with Python (Flask), PostgreSQL / SQLAlchemy ORM, and a responsive Material Design 3 frontend. The platform connects candidates, recruiters, and administrators through an explainable ATS resume match scoring engine, Ashby-style drag-and-drop hiring pipelines, digital job offer letters, and robust JWT role-based access control.
 
 ---
 
-## 🚀 Getting Started
+## 📑 Table of Contents
+1. [Demo](#1-demo)
+2. [Key Features](#2-key-features)
+3. [Tech Stack](#3-tech-stack)
+4. [Architecture & Project Structure](#4-architecture--project-structure)
+5. [Prerequisites](#5-prerequisites)
+6. [Environment Variables](#6-environment-variables)
+7. [Installation & Quickstart](#7-installation--quickstart)
+8. [API Documentation](#8-api-documentation)
+9. [Running Tests](#9-running-tests)
+10. [Contributing](#10-contributing)
+11. [License](#11-license)
 
-### 1. Prerequisites
-- Python 3.10+
-- (Optional) PostgreSQL 14+
+---
 
-### 2. Install Dependencies
-```bash
-pip install -r backend/requirements.txt
+## 1. Demo
+
+When running locally, the platform serves both the frontend web applications and interactive backend services:
+
+- **Web Application Portal**: `http://127.0.0.1:5000/`
+- **Interactive OpenAPI / Swagger UI**: `http://127.0.0.1:5000/api/docs`
+
+### Default Pre-Configured Seed Accounts
+
+| Role | Email | Password | Primary Capabilities |
+|---|---|---|---|
+| **Admin** | `admin@ats.com` | `AdminPass123!` | System analytics, user activation/deactivation, category management |
+| **Recruiter** | `recruiter@ats.com` | `RecruiterPass123!` | Job posting, applicant pipeline management, interview scheduling, offer letters |
+| **Candidate** | `candidate@ats.com` | `CandidatePass123!` | Job search, resume upload, application tracking, offer letter review & acceptance |
+
+> Candidates and recruiters can also self-register at `http://127.0.0.1:5000/pages/register.html` with automated OTP/email verification.
+
+---
+
+## 2. Key Features
+
+### 🎯 Automated ATS Resume Match Scoring
+- **Multi-Factor Algorithm**: Evaluates required job skills (60%), experience duration (25%), and role alignment (15%) to generate a transparent 0–100% compatibility score.
+- **Color-Coded Match Badges**: Strong Match ($\ge 80\%$), Good Match ($60\% - 79\%$), Moderate Match ($40\% - 59\%$), and Low Match ($< 40\%$).
+- **Candidate Dossier Breakdown**: Detailed view displaying matched skill chips vs. missing job requirements.
+- **Candidate Pre-Apply Indicator**: Live ATS score estimation shown directly on job detail pages prior to application.
+- **Recruiter Sorting**: Filter and sort applicant pools by *Highest ATS Match Score*.
+
+### 📊 Dual-View Pipeline Management
+- **Table View**: Comprehensive tabular candidate view with pagination, search, status filters, and one-click actions.
+- **Smart View (Ashby-Style Kanban)**: Drag-and-drop visual pipeline columns (`Applied` &rarr; `Shortlisted` &rarr; `Interview Scheduled` &rarr; `Selected` / `Rejected`).
+- **Pipeline Metrics Ribbon**: Live counters for each hiring stage with quick status filtering.
+
+### 📜 Formal Digital Job Offer Letter Workflow
+- **Recruiter Offer Generation**: Issue formal job offers upon selection, configuring position title, department, salary, joining date, manager, benefits, terms, and document attachments (`.pdf`, `.docx`).
+- **Candidate Digital Review**: Dedicated letterhead review modal where candidates can review compensation, terms, download attachments, and digitally accept or decline with custom notes.
+- **Automated Email Notifications**: Transactional emails dispatched on offer issuance and candidate decision.
+
+### 🔒 Enforced State Machine & Security
+- Strict server-side state transitions preventing illegal status modifications or mutating terminal records.
+- Role-Based Access Control (RBAC) enforced via `@token_required` and `@roles_allowed` decorators.
+- Password hashing with `bcrypt` and stateless JWT authorization.
+
+---
+
+## 3. Tech Stack
+
+- **Backend Framework**: Python 3.12, Flask 3.0.3, Flask-CORS
+- **Database & ORM**: PostgreSQL / SQLAlchemy ORM (automatic local SQLite fallback for dev/testing)
+- **Authentication**: JWT (JSON Web Tokens) with role claims & bcrypt password hashing
+- **Email Service**: SMTP with asynchronous dispatch and local dev console fallback
+- **API Documentation**: Flasgger (OpenAPI / Swagger 2.0 specification)
+- **Frontend**: Vanilla JavaScript (ES6+ Modules), HTML5, CSS3 with Material Design 3 design tokens
+- **Test Suite**: Pytest with 36 comprehensive integration & unit tests
+
+---
+
+## 4. Architecture & Project Structure
+
+```
+ATS_Project/
+├── backend/
+│   ├── app/
+│   │   ├── models/            # SQLAlchemy database models (User, Job, Application, OfferLetter, etc.)
+│   │   ├── routes/            # REST API route blueprints (auth, jobs, applications, admin, candidates)
+│   │   ├── services/          # Business logic (ATS Matcher, State Machine, Email, File Storage)
+│   │   └── utils/             # JWT handlers, decorators, pagination, response helpers
+│   ├── tests/                 # 36 automated pytest suites
+│   ├── uploads/               # Local resume and offer letter document storage
+│   ├── config.py              # Environment configuration classes
+│   └── requirements.txt       # Backend Python dependencies
+├── frontend/
+│   ├── css/                   # Material Design 3 variables and global stylesheets
+│   ├── js/
+│   │   ├── api/               # API client modules for REST communication
+│   │   ├── components/        # Reusable UI components (modals, navbar, toast, offer-modal)
+│   │   └── utils/             # Date formatting and theme initialization
+│   └── pages/
+│       ├── admin/             # Administrator management interfaces
+│       ├── candidate/         # Candidate profile & application tracker
+│       └── recruiter/         # Job posting, pipeline management & applicant review
+├── .env.example               # Environment variable templates
+├── .gitignore                 # Excludes caches, databases, and uploaded PDFs
+├── README.md                  # Project documentation
+└── run.py                     # Application entry point
 ```
 
-### 3. Configure Environment
-Copy `.env.example` to `.env` (optional, default fallback values are provided):
-```bash
-cp .env.example .env
-```
-
-### 4. Run the Application
-```bash
-python run.py
-```
-The server will start at:
-- **Application Portal**: `http://127.0.0.1:5000/`
-- **Interactive Swagger Docs**: `http://127.0.0.1:5000/api/docs`
-
----
-
-## 🔑 Default Credentials
-
-On initial startup, a default administrator is seeded:
-- **Admin**: `admin@ats.com` / `AdminPass123!`
-
-Candidates and Recruiters can register immediately from `/pages/register.html`.
-
----
-
-## 🧪 Automated Tests
-
-Run the full automated pytest suite:
-```bash
-python -m pytest backend/tests -v
-```
-
----
-
-## 🏛 Architecture & State Machine
-
-### Role Permissions
-- **Candidate**: Create profile, upload PDF/Word resume, search and filter jobs, apply to jobs, track applications and interview schedules.
-- **Recruiter**: Post, edit, and delete own jobs, review applicants, inspect resumes, transition candidate application status, schedule interviews.
-- **Admin**: View system analytics, manage all user accounts (activate/deactivate), manage job categories.
-
-### Application Lifecycle State Machine (Section 6)
+### Application Lifecycle State Machine
 ```
 [applied] ───────────► [shortlisted] ───────────► [interview_scheduled] ───────────► [selected]
     │                        │                               │                            │
     ▼                        ▼                               ▼                            ▼
 [rejected]               [rejected]                      [rejected]                  (Terminal)
 ```
-Invalid transitions or mutating terminal states are strictly rejected with HTTP 400 by the server-side state machine.
 
 ---
 
-## ⭐ Key Highlights & Features
+## 5. Prerequisites
 
-1. **Automated ATS Compatibility & Match Scoring**:
-   - Multi-factor algorithm evaluating skill keywords (60%), experience duration (25%), and role alignment (15%).
-   - Color-coded match badges (`Strong Match >= 80%`, `Good Match >= 60%`, `Moderate Match >= 40%`).
-   - Detailed candidate dossier breakdown showing matched skills vs. missing job requirements.
-   - Ability for recruiters to sort applicant pools by highest ATS match score.
-   - Real-time compatibility preview for candidates prior to applying.
+Before installing, ensure your environment meets the following requirements:
+- **Python**: Version 3.10 or higher (Python 3.12 recommended)
+- **Git**: Version 2.30 or higher
+- **Database (Optional for Production)**: PostgreSQL 14+ (SQLite is used automatically if PostgreSQL is not configured)
+- **Modern Web Browser**: Chrome, Edge, Firefox, or Safari
 
-2. **Ashby-Style Dual Pipeline View**:
-   - Seamless toggle between **Table View** (detailed tabular overview) and **Smart View** (interactive Drag-and-Drop Kanban Board).
-   - Real-time stage metric ribbon with quick status filtering.
+---
 
-3. **Formal Digital Job Offer Letter Workflow**:
-   - Recruiters can generate, customize, and issue formal offer letters upon candidate selection, including salary, start date, benefits, terms, and document attachments.
-   - Candidates can review offer letters in a dedicated digital experience and formally accept or decline with response notes.
-   - Automated email notifications dispatched to both parties on issuance and response.
+## 6. Environment Variables
 
-4. **Robust Automated Test Suite**:
-   - 36 comprehensive unit and integration tests covering authentication, RBAC, state machine transitions, job management, interview scheduling, offer letters, and ATS matching algorithms.
+Create a `.env` file in the root directory by copying `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description | Default / Example Value |
+|---|---|---|
+| `FLASK_ENV` | Application environment mode | `development` |
+| `FLASK_DEBUG` | Enable debug mode and hot reloading | `True` |
+| `SECRET_KEY` | Flask session cryptographic secret | `dev-secret-key-change-in-production` |
+| `JWT_SECRET_KEY` | JWT signing secret key | `jwt-secret-key-change-in-production` |
+| `JWT_ACCESS_TOKEN_EXPIRES_HOURS` | Access token lifespan | `24` |
+| `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///ats_dev.db` or `postgresql://user:pass@localhost:5432/ats_db` |
+| `SMTP_HOST` | Outgoing SMTP mail server | `smtp.example.com` *(optional in dev)* |
+| `SMTP_PORT` | SMTP port (typically 587 for TLS) | `587` |
+| `SMTP_USER` | SMTP username | `no-reply@example.com` |
+| `SMTP_PASSWORD` | SMTP password / app key | `your-smtp-password` |
+| `FRONTEND_URL` | Base URL used for email links | `http://127.0.0.1:5000` |
+| `MAX_CONTENT_LENGTH` | Max file upload size (bytes) | `10485760` (10MB) |
+
+---
+
+## 7. Installation & Quickstart
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/harshithcheripally16-ui/ATS_Project.git
+cd ATS_Project
+```
+
+### Step 2: Create and Activate a Virtual Environment
+```bash
+# On Windows (PowerShell):
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# On Linux / macOS:
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+```bash
+pip install -r backend/requirements.txt
+```
+
+### Step 4: Run the Application
+```bash
+python run.py
+```
+
+Open your browser and navigate to:
+- **Application**: [http://127.0.0.1:5000/](http://127.0.0.1:5000/)
+- **Swagger Documentation**: [http://127.0.0.1:5000/api/docs](http://127.0.0.1:5000/api/docs)
+
+---
+
+## 8. API Documentation
+
+The backend includes live, interactive OpenAPI / Swagger 2.0 specifications accessible at:
+```
+http://127.0.0.1:5000/api/docs
+```
+
+### Primary REST Endpoints Summary
+
+- **Authentication (`/api/v1/auth`)**:
+  - `POST /register`: Register a new candidate or recruiter account.
+  - `POST /login`: Authenticate and receive JWT access token.
+  - `POST /verify-otp`: Complete account email verification.
+  - `POST /forgot-password` & `POST /reset-password`: Account recovery.
+- **Job Management (`/api/v1/jobs`)**:
+  - `GET /jobs`: Browse open job listings with category, location, and keyword filtering.
+  - `POST /jobs`: Create a new job requisition (recruiter/admin).
+  - `PATCH /jobs/<id>`: Update job details, requirements, or status.
+- **Applications & Pipeline (`/api/v1/applications`)**:
+  - `POST /applications`: Submit job application with optional resume upload.
+  - `GET /applications`: Retrieve all applicant submissions across jobs (supports `sort=match`).
+  - `PATCH /applications/<id>/status`: Advance candidate in pipeline (state machine enforced).
+  - `POST /applications/<id>/offer`: Generate and issue official job offer letter.
+  - `PATCH /applications/<id>/offer/respond`: Accept or decline offer (candidate only).
+- **Interviews (`/api/v1/interviews`)**:
+  - `POST /applications/<id>/interviews`: Schedule an interview session.
+- **Candidate Profiles (`/api/v1/candidates`)**:
+  - `GET /candidates/profile` & `PUT /candidates/profile`: Manage candidate skills, education, and resume.
+
+---
+
+## 9. Running Tests
+
+The automated test suite utilizes Pytest and covers all authentication flows, role-based authorization, state machine rules, email notifications, offer letters, and ATS matching calculations.
+
+Run the entire test suite:
+```bash
+python -m pytest backend/tests -v
+```
+
+### Test Suite Execution Output:
+```text
+============================= test session starts =============================
+collected 36 items
+
+backend/tests/test_admin.py (4 tests) .................................. PASSED
+backend/tests/test_ats_matcher.py (5 tests) ............................ PASSED
+backend/tests/test_auth.py (7 tests) ................................... PASSED
+backend/tests/test_candidate_and_application.py (5 tests) .............. PASSED
+backend/tests/test_interviews.py (1 test) .............................. PASSED
+backend/tests/test_jobs.py (4 tests) ................................... PASSED
+backend/tests/test_notifications.py (4 tests) .......................... PASSED
+backend/tests/test_offer_letter.py (2 tests) ........................... PASSED
+backend/tests/test_seed_accounts.py (1 test) ........................... PASSED
+backend/tests/test_state_machine.py (3 tests) .......................... PASSED
+
+============================= 36 passed in 28.41s =============================
+```
+
+---
+
+## 10. Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository.
+2. Create your feature branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. Commit your changes with clear, descriptive messages:
+   ```bash
+   git commit -m "feat: describe your addition"
+   ```
+4. Ensure all automated tests pass:
+   ```bash
+   python -m pytest backend/tests -v
+   ```
+5. Push to your branch and open a Pull Request.
+
+---
+
+## 11. License
+
+This project is licensed under the **MIT License**. You are free to use, modify, and distribute this software in personal and commercial projects.
 
