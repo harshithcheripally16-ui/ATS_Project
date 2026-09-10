@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div class="mono-tag" style="margin-bottom: 4px;">// ACCESS CONTROL</div>
+        <h2>User Management</h2>
+        <p class="text-muted">Review, create, update, and manage registered platform accounts.</p>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-primary btn-sm" onclick="openCreateUserModal()">
+          <span class="material-icons icon-sm">person_add</span> + Add New User
+        </button>
+        <a href="/pages/admin/dashboard.html" class="btn btn-secondary btn-sm">&larr; Back to Admin Dashboard</a>
+      </div>
+    </div>
+
+    <!-- User Filters & Search -->
+    <div class="card" style="margin-bottom: 24px; padding: 16px;">
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label class="form-label" style="margin-bottom:0;" for="role-filter">
+              <span class="material-icons icon-sm" style="vertical-align:-2px;">filter_alt</span> Role:
+            </label>
+            <select id="role-filter" class="form-select" style="padding: 4px 10px; font-size: 0.85rem; width: 150px;">
+              <option value="">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="recruiter">Recruiter</option>
+              <option value="candidate">Candidate</option>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label class="form-label" style="margin-bottom:0;" for="status-filter">Status:</label>
+            <select id="status-filter" class="form-select" style="padding: 4px 10px; font-size: 0.85rem; width: 140px;">
+              <option value="">All Statuses</option>
+              <option value="true">Active Only</option>
+              <option value="false">Inactive Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="text" id="user-search" class="form-control" placeholder="Search by name or email..." style="padding: 6px 12px; font-size: 0.85rem; width: 240px;">
+          <button class="btn btn-secondary btn-sm" onclick="loadUsers(1)"><span class="material-icons icon-sm">search</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card">
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>User Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Registered</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr><td colspan="7" style="text-align: center;" class="text-muted">Loading user accounts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="pagination-container"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS. Engineered with Flask, SQLAlchemy, JWT & SharpLink Design Aesthetics.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/api/admin.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let currentAdminUser = null;
+    let allLoadedUsers = [];
+
+    // Role display priority ranking: Admin (1) -> Recruiter (2) -> Candidate (3) -> Other (4)
+    const ROLE_PRIORITY = {
+      'admin': 1,
+      'recruiter': 2,
+      'candidate': 3,
+      'guest': 4
+    };
+
+    async function loadUsers(page = 1) {
+      const tbody = document.getElementById('users-table-body');
+      const pagContainer = document.getElementById('pagination-container');
+      const role = document.getElementById('role-filter').value;
+      const isActive = document.getElementById('status-filter').value;
+      const search = document.getElementById('user-search').value.trim();
+
+      try {
+        const res = await window.adminApi.listUsers(page, 10, role, isActive, search);
+        const { items, pagination } = res.data;
+
+        // Ensure strict order: Admin -> Recruiter -> Candidate -> Guest
+        const sortedItems = [...items].sort((a, b) => {
+          const rankA = ROLE_PRIORITY[a.role] || 99;
+          const rankB = ROLE_PRIORITY[b.role] || 99;
+          if (rankA !== rankB) return rankA - rankB;
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        });
+
+        allLoadedUsers = sortedItems;
+
+        if (sortedItems.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 28px;" class="text-muted">No users found matching the selected filters.</td></tr>';
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = sortedItems.map(user => {
+          const isSelf = currentAdminUser && currentAdminUser.id === user.id;
+          const isAdmin = user.role === 'admin';
+
+          // Action buttons: Themed icon buttons with hover tooltips
+          // Safety Rule: Admin cannot delete another admin or him/herself
+          let actionButtons = '';
+          if (isSelf) {
+            actionButtons = `
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-icon btn-icon-secondary" onclick="openEditUserModal(${user.id})" data-tooltip="Edit Profile (You)" title="Edit Profile (You)">
+                  <span class="material-icons">edit</span>
+                </button>
+                <span class="badge" style="background:rgba(0, 240, 255, 0.08); color:var(--accent-cyan); font-size:0.75rem; border:1px solid rgba(0, 240, 255, 0.2);">You</span>
+              </div>
+            `;
+          } else if (isAdmin) {
+            actionButtons = `
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-icon btn-icon-secondary" onclick="openEditUserModal(${user.id})" data-tooltip="Edit Admin Details" title="Edit Admin Details">
+                  <span class="material-icons">edit</span>
+                </button>
+                <span class="badge" style="background:rgba(168, 85, 247, 0.1); color:#c084fc; font-size:0.75rem; border:1px solid rgba(168, 85, 247, 0.25);" data-tooltip="Protected Admin Account" title="Protected Admin Account">
+                  <span class="material-icons" style="font-size:0.85rem; margin-right:2px; vertical-align:middle;">shield</span> Protected
+                </span>
+              </div>
+            `;
+          } else {
+            const escapedName = (user.name || 'User').replace(/'/g, "\\'");
+            const statusTooltip = user.is_active ? 'Deactivate User' : 'Activate User';
+            const statusIcon = user.is_active ? 'block' : 'check_circle';
+            const statusBtnClass = user.is_active ? 'btn-icon-warning' : 'btn-icon-success';
+
+            actionButtons = `
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn-icon btn-icon-secondary" onclick="openEditUserModal(${user.id})" data-tooltip="Edit User" title="Edit User">
+                  <span class="material-icons">edit</span>
+                </button>
+                <button class="btn-icon ${statusBtnClass}" onclick="toggleUserStatus(${user.id}, ${!user.is_active}, '${user.email}')" data-tooltip="${statusTooltip}" title="${statusTooltip}">
+                  <span class="material-icons">${statusIcon}</span>
+                </button>
+                <button class="btn-icon btn-icon-danger" onclick="confirmDeleteUser(${user.id}, '${escapedName}', '${user.email}', '${user.role}')" data-tooltip="Delete User" title="Delete User">
+                  <span class="material-icons">delete</span>
+                </button>
+              </div>
+            `;
+          }
+
+          return `
+            <tr>
+              <td>
+                <strong>${user.name}</strong> ${isSelf ? '<span class="text-muted">(You)</span>' : ''}
+              </td>
+              <td>${user.email}</td>
+              <td><span class="badge badge-${user.role}">${user.role}</span></td>
+              <td>${user.phone || '—'}</td>
+              <td>
+                <span class="badge" style="${user.is_active ? 'background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);' : 'background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);'}">
+                  <span class="material-icons icon-sm">${user.is_active ? 'check_circle' : 'block'}</span> ${user.is_active ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </td>
+              <td>${window.DateFormat.formatDate(user.created_at)}</td>
+              <td>${actionButtons}</td>
+            </tr>
+          `;
+        }).join('');
+
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadUsers(targetPage);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="color:var(--md-sys-color-error); text-align:center;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    // Modal: Add New User (Create)
+    function openCreateUserModal() {
+      const formHtml = `
+        <form id="create-user-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-name">Full Name *</label>
+            <input type="text" id="new-name" class="form-control" required placeholder="e.g. Jane Doe">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-email">Email Address *</label>
+            <input type="email" id="new-email" class="form-control" required placeholder="e.g. jane@company.com">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-role">Role *</label>
+            <select id="new-role" class="form-select" required>
+              <option value="candidate">Candidate</option>
+              <option value="recruiter">Recruiter</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-phone">Phone Number</label>
+            <input type="text" id="new-phone" class="form-control" placeholder="e.g. +91 98765 43210">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-password">Password (min 6 characters) *</label>
+            <input type="password" id="new-password" class="form-control" required minlength="6" placeholder="Strong password">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="new-status">Initial Status</label>
+            <select id="new-status" class="form-select">
+              <option value="true">Active (Verified & Enabled)</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </form>
+      `;
+
+      window.Modal.create({
+        title: "Create New User Account",
+        bodyHtml: formHtml,
+        confirmText: "Create Account",
+        onConfirm: async () => {
+          const name = document.getElementById("new-name").value.trim();
+          const email = document.getElementById("new-email").value.trim();
+          const role = document.getElementById("new-role").value;
+          const phone = document.getElementById("new-phone").value.trim();
+          const password = document.getElementById("new-password").value;
+          const is_active = document.getElementById("new-status").value === "true";
+
+          if (!name || !email || !password) {
+            window.Toast.error("Name, email, and password are required.");
+            return false;
+          }
+
+          try {
+            await window.adminApi.createUser({ name, email, role, phone, password, is_active });
+            window.Toast.success(`User ${email} created successfully`);
+            loadUsers(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message || "Failed to create user");
+            return false;
+          }
+        }
+      });
+    }
+
+    // Modal: Edit User (Update)
+    function openEditUserModal(userId) {
+      const user = allLoadedUsers.find(u => u.id === userId);
+      if (!user) return;
+
+      const isSelf = currentAdminUser && currentAdminUser.id === user.id;
+
+      const formHtml = `
+        <form id="edit-user-form" style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-name">Full Name *</label>
+            <input type="text" id="edit-name" class="form-control" value="${user.name || ''}" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-email">Email Address *</label>
+            <input type="email" id="edit-email" class="form-control" value="${user.email || ''}" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-role">Role *</label>
+            <select id="edit-role" class="form-select" ${isSelf ? 'disabled title="You cannot change your own admin role"' : ''}>
+              <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+              <option value="recruiter" ${user.role === 'recruiter' ? 'selected' : ''}>Recruiter</option>
+              <option value="candidate" ${user.role === 'candidate' ? 'selected' : ''}>Candidate</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-phone">Phone Number</label>
+            <input type="text" id="edit-phone" class="form-control" value="${user.phone || ''}">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-status">Account Status</label>
+            <select id="edit-status" class="form-select" ${isSelf ? 'disabled title="You cannot deactivate your own account"' : ''}>
+              <option value="true" ${user.is_active ? 'selected' : ''}>Active</option>
+              <option value="false" ${!user.is_active ? 'selected' : ''}>Inactive</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="edit-password">New Password (optional)</label>
+            <input type="password" id="edit-password" class="form-control" placeholder="Leave blank to keep current password">
+          </div>
+        </form>
+      `;
+
+      window.Modal.create({
+        title: `Edit User: ${user.name}`,
+        bodyHtml: formHtml,
+        confirmText: "Save Changes",
+        onConfirm: async () => {
+          const name = document.getElementById("edit-name").value.trim();
+          const email = document.getElementById("edit-email").value.trim();
+          const role = document.getElementById("edit-role").value;
+          const phone = document.getElementById("edit-phone").value.trim();
+          const is_active = document.getElementById("edit-status").value === "true";
+          const password = document.getElementById("edit-password").value;
+
+          if (!name || !email) {
+            window.Toast.error("Name and email are required.");
+            return false;
+          }
+
+          const payload = { name, email, phone };
+          if (!isSelf) {
+            payload.role = role;
+            payload.is_active = is_active;
+          }
+          if (password) {
+            if (password.length < 6) {
+              window.Toast.error("New password must be at least 6 characters.");
+              return false;
+            }
+            payload.password = password;
+          }
+
+          try {
+            await window.adminApi.updateUser(userId, payload);
+            window.Toast.success("User updated successfully");
+            loadUsers(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message || "Failed to update user");
+            return false;
+          }
+        }
+      });
+    }
+
+    // Modal: Delete User (Delete with safety confirmation)
+    function confirmDeleteUser(userId, name, email, role) {
+      if (role === 'admin') {
+        window.Toast.error("Administrators cannot remove another administrator account.");
+        return;
+      }
+
+      window.Modal.create({
+        title: "Delete User Account",
+        bodyHtml: `
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <p>Are you sure you want to permanently delete the account for <strong>${name}</strong> (<span class="mono-tag" style="font-size:0.8rem;">${email}</span>)?</p>
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--md-sys-radius-sm); padding: 12px; font-size: 0.88rem; color: #f87171;">
+              <strong>Warning:</strong> This will delete all applications, profile data, or jobs associated with this user. This action cannot be undone.
+            </div>
+          </div>
+        `,
+        confirmText: "Delete Account",
+        confirmClass: "btn btn-danger",
+        onConfirm: async () => {
+          try {
+            await window.adminApi.deleteUser(userId);
+            window.Toast.success(`User ${email} removed successfully.`);
+            loadUsers(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message || "Failed to delete user");
+            return false;
+          }
+        }
+      });
+    }
+
+    // Toggle User Status (Quick Activate/Deactivate)
+    async function toggleUserStatus(userId, targetActive, email) {
+      const action = targetActive ? 'activate' : 'deactivate';
+      window.Modal.create({
+        title: `${action.toUpperCase()} User Account`,
+        bodyHtml: `<p>Are you sure you want to <strong>${action}</strong> account for <strong>${email}</strong>?</p>`,
+        confirmText: `${action.toUpperCase()}`,
+        onConfirm: async () => {
+          try {
+            await window.adminApi.updateUserStatus(userId, targetActive);
+            window.Toast.success(`User ${email} ${targetActive ? 'activated' : 'deactivated'}`);
+            loadUsers(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      currentAdminUser = window.authApi.getCurrentUser();
+      if (!currentAdminUser || currentAdminUser.role !== 'admin') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      loadUsers(1);
+
+      document.getElementById('role-filter').addEventListener('change', () => loadUsers(1));
+      document.getElementById('status-filter').addEventListener('change', () => loadUsers(1));
+      document.getElementById('user-search').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') loadUsers(1);
+      });
+    });
+  </script>
+</body>
+</html>

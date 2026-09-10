@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Dashboard - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h2>Candidate Dashboard</h2>
+        <p class="text-muted">Track your job applications and upcoming interview schedules.</p>
+      </div>
+      <div>
+        <a href="/pages/candidate/profile.html" class="btn btn-secondary btn-sm"><span class="material-icons icon-sm">account_circle</span> Edit Profile / Resume</a>
+        <a href="/pages/jobs.html" class="btn btn-primary btn-sm"><span class="material-icons icon-sm">search</span> Browse More Jobs</a>
+      </div>
+    </div>
+
+    <!-- Upcoming Interviews Section -->
+    <div class="card" style="margin-bottom: 24px;">
+      <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span class="material-icons icon-md" style="color:var(--accent-purple);">event</span>
+        Upcoming Interviews
+      </h3>
+      <div id="interviews-list">
+        <p class="text-muted">Checking scheduled interviews...</p>
+      </div>
+    </div>
+
+    <!-- Formal Offer Letter Banner Container -->
+    <div id="offer-banner-container"></div>
+
+    <!-- Application Tracker Section -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3><span class="material-icons icon-sm" style="color:var(--accent-cyan); vertical-align:-2px;">assignment</span> My Job Applications</h3>
+        <select id="status-filter" class="form-select" style="max-width: 200px; padding: 6px 10px; font-size: 0.85rem;">
+          <option value="">All Statuses</option>
+          <option value="applied">Applied</option>
+          <option value="shortlisted">Shortlisted</option>
+          <option value="interview_scheduled">Interview Scheduled</option>
+          <option value="selected">Selected</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Job Title</th>
+              <th>Location</th>
+              <th>Applied Date</th>
+              <th>Status</th>
+              <th>Recruiter Remarks</th>
+              <th>Offer & Actions</th>
+            </tr>
+          </thead>
+          <tbody id="applications-table-body">
+            <tr><td colspan="6" style="text-align: center;" class="text-muted">Loading your applications...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="pagination-container"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/api/applications.js"></script>
+  <script src="/js/api/interviews.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/offer-modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let myApplications = [];
+
+    function reviewOffer(appId) {
+      const app = myApplications.find(a => a.id === appId);
+      if (!app) return;
+      window.OfferModal.openCandidateModal(app, () => {
+        loadApplications(1);
+      });
+    }
+
+    async function loadInterviews() {
+      const container = document.getElementById('interviews-list');
+      try {
+        const res = await window.interviewsApi.getMyInterviews(1, 10);
+        const interviews = res.data.items || [];
+        if (interviews.length === 0) {
+          container.innerHTML = '<p class="text-muted">No interviews scheduled yet. You will be notified once a recruiter schedules an interview.</p>';
+          return;
+        }
+
+        container.innerHTML = interviews.map(i => `
+          <div style="background: var(--bg-surface-glass); border: 1px solid var(--md-sys-color-outline); border-left: 4px solid var(--accent-purple); padding: 16px; border-radius: var(--md-sys-radius-sm); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div style="font-weight: 600; font-size: 1rem; color: var(--md-sys-color-on-surface);">${i.application?.job?.title || 'Job Interview'}</div>
+              <div class="text-muted" style="margin-top: 4px;">
+                <span class="material-icons icon-sm" style="vertical-align:-2px;">event</span> <strong>Date:</strong> ${window.DateFormat.formatDate(i.date)} &bull; <span class="material-icons icon-sm" style="vertical-align:-2px;">schedule</span> <strong>Time:</strong> ${i.time} &bull; <span class="material-icons icon-sm" style="vertical-align:-2px;">videocam</span> <strong>Mode:</strong> <span style="text-transform: capitalize;">${i.mode}</span>
+              </div>
+              ${i.notes ? `<div style="font-size: 0.88rem; margin-top: 6px; color: var(--md-sys-color-on-surface-variant); font-weight: 500;"><span class="material-icons icon-sm" style="vertical-align:-2px; color: var(--accent-cyan);">link</span> <strong>Notes/Link:</strong> ${i.notes}</div>` : ''}
+            </div>
+            <div>
+              <span class="badge badge-${i.status}">${i.status}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p class="text-muted">Could not load interviews: ${err.message}</p>`;
+      }
+    }
+
+    async function loadApplications(page = 1) {
+      const tbody = document.getElementById('applications-table-body');
+      const pagContainer = document.getElementById('pagination-container');
+      const bannerContainer = document.getElementById('offer-banner-container');
+      const status = document.getElementById('status-filter').value;
+
+      try {
+        const res = await window.applicationsApi.getMyApplications(page, 10, status);
+        const { items, pagination } = res.data;
+        myApplications = items || [];
+
+        // Check for pending offer letters across candidate applications
+        const pendingOfferApp = myApplications.find(a => a.offer_letter && a.offer_letter.status === 'pending');
+        if (pendingOfferApp && bannerContainer) {
+          bannerContainer.innerHTML = `
+            <div class="card" style="margin-bottom: 24px; background: rgba(0, 240, 255, 0.05); border: 1px solid var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding: 20px;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <span class="material-icons" style="font-size: 36px; color: var(--accent-cyan);">stars</span>
+                <div>
+                  <h3 style="margin: 0 0 4px 0; color: var(--md-sys-color-on-surface);">Formal Job Offer Extended!</h3>
+                  <p class="text-muted" style="margin: 0; font-size: 0.88rem;">
+                    You have received an official job offer for <strong>${pendingOfferApp.offer_letter.position_title}</strong> with compensation <strong>${pendingOfferApp.offer_letter.salary}</strong>.
+                  </p>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="reviewOffer(${pendingOfferApp.id})" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span class="material-icons icon-sm">description</span> Review & Respond to Offer
+              </button>
+            </div>
+          `;
+        } else if (bannerContainer) {
+          bannerContainer.innerHTML = '';
+        }
+
+        if (myApplications.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center; padding: 48px 24px;">
+                <span class="material-icons icon-lg" style="color: var(--accent-cyan); font-size: 40px; margin-bottom: 8px;">assignment_late</span>
+                <h4 style="margin: 4px 0; color: var(--md-sys-color-on-surface);">No Applications Submitted Yet</h4>
+                <p class="text-muted" style="margin-top: 4px; font-size: 0.88rem;">Explore open job opportunities and submit your first application.</p>
+                <a href="/pages/jobs.html" class="btn btn-primary btn-sm" style="margin-top: 14px; display: inline-flex; align-items: center; gap: 6px;">
+                  <span class="material-icons icon-sm">search</span> Browse Openings
+                </a>
+              </td>
+            </tr>
+          `;
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = myApplications.map(app => {
+          let offerActionHtml = '<span class="text-muted">—</span>';
+          if (app.offer_letter) {
+            const st = app.offer_letter.status;
+            const badgeClass = (st === 'accepted') ? 'badge-selected' : ((st === 'declined') ? 'badge-rejected' : 'badge-shortlisted');
+            const badgeLabel = (st === 'accepted') ? '✓ Accepted' : ((st === 'declined') ? '✗ Declined' : '⏳ Action Required');
+            offerActionHtml = `
+              <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                <button class="btn btn-primary btn-sm" onclick="reviewOffer(${app.id})" style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; font-size: 0.8rem;">
+                  <span class="material-icons icon-sm" style="font-size:15px;">stars</span> Review Offer
+                </button>
+                <span class="badge ${badgeClass}" style="font-size: 0.7rem; padding: 2px 6px;">
+                  ${badgeLabel}
+                </span>
+              </div>
+            `;
+          } else if (app.status === 'selected') {
+            offerActionHtml = `
+              <span class="badge badge-selected" style="font-size:0.75rem;"><span class="material-icons icon-sm" style="font-size:13px;">check_circle</span> Selected</span>
+              <div class="text-muted" style="font-size:0.72rem; margin-top:2px;">Offer in preparation</div>
+            `;
+          }
+
+          return `
+            <tr>
+              <td>
+                <strong><a href="/pages/job-detail.html?id=${app.job?.id || ''}" style="color:var(--accent-cyan); text-decoration:none;">${app.job?.title || 'Unknown Job'}</a></strong>
+              </td>
+              <td>${app.job?.location || 'Remote'}</td>
+              <td>${window.DateFormat.formatDate(app.applied_date)}</td>
+              <td><span class="badge badge-${app.status}">${app.status.replace('_', ' ')}</span></td>
+              <td style="color: var(--md-sys-color-on-surface-variant); font-weight: 500; font-size: 0.88rem;">${app.recruiter_remarks || '—'}</td>
+              <td>${offerActionHtml}</td>
+            </tr>
+          `;
+        }).join('');
+
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadApplications(targetPage);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--md-sys-color-error); text-align:center;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || user.role !== 'candidate') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      loadInterviews();
+      loadApplications(1);
+
+      document.getElementById('status-filter').addEventListener('change', () => {
+        loadApplications(1);
+      });
+    });
+  </script>
+</body>
+</html>

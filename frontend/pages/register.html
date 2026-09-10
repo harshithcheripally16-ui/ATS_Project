@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="display: flex; justify-content: center; align-items: center; min-height: 75vh;">
+    <div class="card" style="max-width: 480px; width: 100%;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2>Create an Account</h2>
+        <p class="text-muted" style="margin-top: 6px;">Sign up to discover job opportunities or hire candidates.</p>
+      </div>
+
+      <div id="alert-box" style="display: none; padding: 12px; border-radius: var(--md-sys-radius-sm); margin-bottom: 16px; font-size: 0.9rem;"></div>
+
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label" for="role">I want to:</label>
+          <select id="role" class="form-select" required>
+            <option value="candidate">Apply for jobs (Candidate)</option>
+            <option value="recruiter">Post jobs & hire talent (Recruiter)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="name">Full Name</label>
+          <input type="text" id="name" class="form-control" placeholder="Jane Doe" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" id="email" class="form-control" placeholder="jane.doe@example.com" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone Number (Optional)</label>
+          <input type="tel" id="phone" class="form-control" placeholder="+1 (555) 000-0000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password (6+ characters)</label>
+          <input type="password" id="password" class="form-control" placeholder="Create a secure password" minlength="6" required>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Create Account</button>
+      </form>
+
+      <div style="text-align: center; margin-top: 20px; font-size: 0.9rem;">
+        <span class="text-muted">Already have an account?</span>
+        <a href="/pages/login.html" style="color: var(--md-sys-color-primary); font-weight: 600; text-decoration: none; margin-left: 4px;">Sign In</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roleParam = urlParams.get('role');
+      if (roleParam && ['candidate', 'recruiter'].includes(roleParam)) {
+        document.getElementById('role').value = roleParam;
+      }
+
+      document.getElementById('register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        const alertBox = document.getElementById('alert-box');
+
+        const payload = {
+          name: document.getElementById('name').value.trim(),
+          email: document.getElementById('email').value.trim(),
+          phone: document.getElementById('phone').value.trim() || null,
+          role: document.getElementById('role').value,
+          password: document.getElementById('password').value
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Creating account...';
+        alertBox.style.display = 'none';
+
+        try {
+          const res = await window.authApi.register(payload);
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+          alertBox.style.color = '#34d399';
+          alertBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          alertBox.innerHTML = `
+            <strong>${res.message}</strong>
+            <p style="margin: 8px 0 12px 0; font-size: 0.88rem; color: #a7f3d0;">A 6-digit OTP code has been sent to <strong>${payload.email}</strong> via SMTP.</p>
+            <a href="/pages/login.html?verify_email=${encodeURIComponent(payload.email)}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+              <span class="material-icons icon-sm">verified</span> Enter OTP to Sign In &rarr;
+            </a>
+          `;
+          document.getElementById('register-form').reset();
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Create Account';
+          setTimeout(() => {
+            window.location.href = `/pages/login.html?verify_email=${encodeURIComponent(payload.email)}`;
+          }, 2500);
+        } catch (err) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.color = '#f87171';
+          alertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          alertBox.innerText = err.message;
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Create Account';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Post / Edit Job - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="max-width: 800px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h2 id="page-heading">Create New Job Opening</h2>
+        <p class="text-muted">Fill out the details to post a position for candidates.</p>
+      </div>
+      <a href="/pages/recruiter/dashboard.html" class="btn btn-secondary btn-sm">&larr; Back to Recruiter Hub</a>
+    </div>
+
+    <div class="card">
+      <form id="job-form">
+        <div class="form-group">
+          <label class="form-label" for="title">Job Title *</label>
+          <input type="text" id="title" class="form-control" placeholder="e.g. Senior Backend Engineer" required>
+        </div>
+
+        <div class="grid grid-cols-2">
+          <div class="form-group">
+            <label class="form-label" for="category_id">Category</label>
+            <select id="category_id" class="form-select">
+              <option value="">Select a category...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="status">Posting Status</label>
+            <select id="status" class="form-select">
+              <option value="open">Open (Publicly visible & accepting applicants)</option>
+              <option value="draft">Draft (Save privately)</option>
+              <option value="closed">Closed (Archive)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3">
+          <div class="form-group">
+            <label class="form-label" for="location">Location</label>
+            <input type="text" id="location" class="form-control" placeholder="e.g. Remote or San Francisco, CA">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="experience">Experience Level</label>
+            <input type="text" id="experience" class="form-control" placeholder="e.g. 2-4 years">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="salary">Compensation / Salary</label>
+            <input type="text" id="salary" class="form-control" placeholder="e.g. $90,000 - $120,000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="skills">Required Skills (Comma-separated)</label>
+          <input type="text" id="skills" class="form-control" placeholder="e.g. Python, Flask, SQL, Docker, AWS">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="deadline">Application Deadline (Optional)</label>
+          <input type="date" id="deadline" class="form-control" style="max-width: 300px;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Job Description & Responsibilities *</label>
+          <textarea id="description" class="form-control" style="min-height: 180px;" placeholder="Detailed role description, responsibilities, and requirements..." required></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;">
+          <a href="/pages/recruiter/dashboard.html" class="btn btn-secondary">Cancel</a>
+          <button type="submit" id="submit-btn" class="btn btn-primary">Publish Job</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/api/jobs.js"></script>
+  <script src="/js/api/admin.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let editId = null;
+
+    async function loadCategories() {
+      try {
+        const res = await window.adminApi.listCategories();
+        const select = document.getElementById('category_id');
+        (res.data.categories || []).forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat.id;
+          opt.textContent = cat.name;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadJobForEdit(id) {
+      try {
+        const res = await window.jobsApi.getJob(id);
+        const job = res.data.job;
+
+        document.getElementById('page-heading').innerText = 'Edit Job Posting';
+        document.getElementById('submit-btn').innerText = 'Save Changes';
+
+        document.getElementById('title').value = job.title || '';
+        document.getElementById('category_id').value = job.category_id || '';
+        document.getElementById('status').value = job.status || 'open';
+        document.getElementById('location').value = job.location || '';
+        document.getElementById('experience').value = job.experience || '';
+        document.getElementById('salary').value = job.salary || '';
+        document.getElementById('skills').value = job.skills_raw || '';
+        document.getElementById('deadline').value = job.deadline || '';
+        document.getElementById('description').value = job.description || '';
+      } catch (err) {
+        window.Toast.error("Error loading job: " + err.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || user.role !== 'recruiter') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      await loadCategories();
+
+      const urlParams = new URLSearchParams(window.location.search);
+      editId = urlParams.get('edit_id');
+      if (editId) {
+        loadJobForEdit(editId);
+      }
+
+      document.getElementById('job-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+
+        const payload = {
+          title: document.getElementById('title').value.trim(),
+          category_id: document.getElementById('category_id').value ? parseInt(document.getElementById('category_id').value) : null,
+          status: document.getElementById('status').value,
+          location: document.getElementById('location').value.trim() || null,
+          experience: document.getElementById('experience').value.trim() || null,
+          salary: document.getElementById('salary').value.trim() || null,
+          skills: document.getElementById('skills').value.trim() || null,
+          deadline: document.getElementById('deadline').value || null,
+          description: document.getElementById('description').value.trim()
+        };
+
+        try {
+          if (editId) {
+            await window.jobsApi.updateJob(editId, payload);
+            window.Toast.success('Job updated successfully');
+          } else {
+            await window.jobsApi.createJob(payload);
+            window.Toast.success('Job published successfully');
+          }
+          setTimeout(() => {
+            window.location.href = '/pages/recruiter/dashboard.html';
+          }, 800);
+        } catch (err) {
+          window.Toast.error(err.message);
+          submitBtn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recruiter Dashboard - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h2>Recruiter Hub</h2>
+        <p class="text-muted">Manage your job openings, track applicants, and schedule candidate interviews.</p>
+      </div>
+      <div>
+        <a href="/pages/recruiter/post-job.html" class="btn btn-primary"><span class="material-icons icon-sm">add</span> Post New Job</a>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-3" style="margin-bottom: 24px;">
+      <div class="card stat-card">
+        <div class="stat-icon"><span class="material-icons icon-md">work</span></div>
+        <div>
+          <div id="stat-jobs" class="stat-value">-</div>
+          <div class="stat-label">Jobs Posted</div>
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.15); color: #60a5fa;"><span class="material-icons icon-md">groups</span></div>
+        <div>
+          <div id="stat-applicants" class="stat-value">-</div>
+          <div class="stat-label">Total Applicants</div>
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-icon" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc;"><span class="material-icons icon-md">event</span></div>
+        <div>
+          <div id="stat-interviews" class="stat-value">-</div>
+          <div class="stat-label">Interviews Scheduled</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Platform Jobs Table -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 style="margin: 0 0 4px 0;">Available Job Openings</h3>
+          <p class="text-muted" style="margin: 0; font-size: 0.86rem;">Whichever job postings are active on the candidates platform are accessible here for applicant review.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label class="form-label" for="jobs-scope" style="margin-bottom: 0; font-size: 0.84rem;">View:</label>
+          <select id="jobs-scope" class="form-select" style="max-width: 220px; font-size: 0.85rem; padding: 6px 12px;">
+            <option value="all" selected>All Platform Openings</option>
+            <option value="mine">Posted by Me</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Job Title</th>
+              <th>Category</th>
+              <th>Location</th>
+              <th>Posted By</th>
+              <th>Applicants</th>
+              <th>Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-table-body">
+            <tr><td colspan="7" style="text-align: center;" class="text-muted">Loading job postings...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="pagination-container"></div>
+    </div>
+
+    <!-- Scheduled Interviews -->
+    <div class="card">
+      <h3 style="margin-bottom: 16px;"><span class="material-icons icon-sm" style="color:var(--accent-purple); vertical-align:-2px;">event_available</span> Scheduled Candidate Interviews</h3>
+      <div id="recruiter-interviews">
+        <p class="text-muted">Loading scheduled interviews...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/api/jobs.js"></script>
+  <script src="/js/api/interviews.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    async function loadRecruiterJobs(page = 1) {
+      const tbody = document.getElementById('jobs-table-body');
+      const pagContainer = document.getElementById('pagination-container');
+      const scope = document.getElementById('jobs-scope') ? document.getElementById('jobs-scope').value : 'all';
+      const user = window.authApi.getCurrentUser() || {};
+
+      try {
+        const res = await window.jobsApi.getMyJobs(page, 10, scope);
+        const { items, pagination } = res.data;
+
+        document.getElementById('stat-jobs').innerText = pagination.total || 0;
+        let totalApplicants = 0;
+        items.forEach(j => totalApplicants += (j.applicant_count || 0));
+        document.getElementById('stat-applicants').innerText = totalApplicants;
+
+        if (items.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; padding: 48px 24px;">
+                <span class="material-icons icon-lg" style="color: var(--accent-cyan); font-size: 40px; margin-bottom: 8px;">work_outline</span>
+                <h4 style="margin: 4px 0; color: #f8fafc;">${scope === 'mine' ? "You Haven't Posted Any Jobs Yet" : "No Job Postings Found"}</h4>
+                <p class="text-muted" style="margin-top: 4px; font-size: 0.88rem;">${scope === 'mine' ? "Create your first job posting to start receiving qualified applicant profiles." : "There are currently no active job postings on the platform."}</p>
+                <a href="/pages/recruiter/post-job.html" class="btn btn-primary btn-sm" style="margin-top: 14px; display: inline-flex; align-items: center; gap: 6px;">
+                  <span class="material-icons icon-sm">add</span> Post a Job
+                </a>
+              </td>
+            </tr>
+          `;
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = items.map(job => `
+          <tr>
+            <td>
+              <strong><a href="/pages/job-detail.html?id=${job.id}" style="color:var(--accent-cyan); text-decoration:none;">${job.title}</a></strong>
+            </td>
+            <td>${job.category_name || 'General'}</td>
+            <td>${job.location || 'Remote'}</td>
+            <td>
+              <span class="badge ${job.recruiter_id === user.id ? 'badge-primary' : 'badge-secondary'}" style="font-size:0.75rem;">
+                <span class="material-icons icon-sm" style="font-size:13px; vertical-align:-2px;">person</span>
+                ${job.recruiter_id === user.id ? 'You' : (job.recruiter?.name || 'Recruiter #' + job.recruiter_id)}
+              </span>
+            </td>
+            <td>
+              <a href="/pages/recruiter/applicants.html?job_id=${job.id}" class="badge badge-candidate" style="text-decoration:none;">
+                <span class="material-icons icon-sm">groups</span> ${job.applicant_count} Applicant${job.applicant_count === 1 ? '' : 's'}
+              </a>
+            </td>
+            <td><span class="badge badge-${job.status}">${job.status}</span></td>
+            <td>
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;">
+                <a href="/pages/recruiter/applicants.html?job_id=${job.id}" class="btn-icon btn-icon-secondary" data-tooltip="Review Applicants" title="Review Applicants">
+                  <span class="material-icons">groups</span>
+                </a>
+                ${(job.recruiter_id === user.id || user.role === 'admin') ? `
+                <a href="/pages/recruiter/post-job.html?edit_id=${job.id}" class="btn-icon btn-icon-secondary" data-tooltip="Edit Job" title="Edit Job">
+                  <span class="material-icons">edit</span>
+                </a>
+                <button class="btn-icon btn-icon-danger" onclick="confirmDeleteJob(${job.id}, '${job.title}')" data-tooltip="Delete Job" title="Delete Job">
+                  <span class="material-icons">delete</span>
+                </button>
+                ` : `
+                <span class="text-muted" style="font-size:0.75rem; padding: 4px 6px;">View only</span>
+                `}
+              </div>
+            </td>
+          </tr>
+        `).join('');
+
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadRecruiterJobs(targetPage);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="color:var(--md-sys-color-error); text-align:center;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadRecruiterInterviews() {
+      const container = document.getElementById('recruiter-interviews');
+      try {
+        const res = await window.interviewsApi.getRecruiterInterviews(1, 10);
+        const interviews = res.data.items || [];
+        document.getElementById('stat-interviews').innerText = res.data.pagination?.total || interviews.length;
+
+        if (interviews.length === 0) {
+          container.innerHTML = '<p class="text-muted">No interviews scheduled yet. Shortlist applicants and click "Schedule Interview" on their profile.</p>';
+          return;
+        }
+
+        container.innerHTML = interviews.map(i => `
+          <div style="background: rgba(22, 28, 46, 0.6); border-left: 4px solid var(--accent-purple); padding: 16px; border-radius: var(--md-sys-radius-sm); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div style="font-weight: 600; color:#f8fafc;">
+                <span class="material-icons icon-sm" style="color:var(--accent-cyan); vertical-align:-2px;">person</span> Candidate: ${i.application?.candidate?.name || 'Applicant'} &bull; Role: ${i.application?.job?.title || 'Job'}
+              </div>
+              <div class="text-muted" style="margin-top: 6px;">
+                <span class="material-icons icon-sm" style="vertical-align:-2px;">event</span> <strong>Date:</strong> ${i.date} &bull; <strong>Time:</strong> ${i.time} &bull; <strong>Mode:</strong> ${i.mode}
+              </div>
+              ${i.notes ? `<div style="font-size: 0.85rem; color: #94a3b8; margin-top: 6px;"><span class="material-icons icon-sm" style="vertical-align:-2px;">info</span> <strong>Notes:</strong> ${i.notes}</div>` : ''}
+            </div>
+            <div>
+              <span class="badge badge-${i.status}">${i.status}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p class="text-muted">Could not load interviews: ${err.message}</p>`;
+      }
+    }
+
+    function confirmDeleteJob(jobId, jobTitle) {
+      window.Modal.create({
+        title: 'Delete Job Posting',
+        bodyHtml: `<p>Are you sure you want to delete <strong>${jobTitle}</strong>? All associated applications will also be removed.</p>`,
+        confirmText: 'Delete Job',
+        onConfirm: async () => {
+          try {
+            await window.jobsApi.deleteJob(jobId);
+            window.Toast.success('Job deleted successfully');
+            loadRecruiterJobs(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || user.role !== 'recruiter') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+      loadRecruiterJobs(1);
+      loadRecruiterInterviews();
+
+      document.getElementById('jobs-scope')?.addEventListener('change', () => {
+        loadRecruiterJobs(1);
+      });
+    });
+  </script>
+</body>
+</html>

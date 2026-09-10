@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div class="mono-tag" style="margin-bottom: 4px;">// SYSTEM MANAGEMENT</div>
+        <h2>System Administration</h2>
+        <p class="text-muted">System-wide metrics, job category management, and platform oversight.</p>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <a href="/pages/admin/categories.html" class="btn btn-secondary btn-sm"><span class="material-icons icon-sm">category</span> Job Categories &rarr;</a>
+        <a href="/pages/admin/users.html" class="btn btn-primary btn-sm"><span class="material-icons icon-sm">manage_accounts</span> User Directory &rarr;</a>
+      </div>
+    </div>
+
+    <!-- System Stats Grid -->
+    <div class="grid grid-cols-4" style="margin-bottom: 24px;">
+      <div class="card stat-card">
+        <div class="stat-icon"><span class="material-icons icon-md">people</span></div>
+        <div>
+          <div id="stat-total-users" class="stat-value">-</div>
+          <div class="stat-label">Total Users</div>
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-icon" style="background-color: rgba(59, 130, 246, 0.15); color: #60a5fa;"><span class="material-icons icon-md">work</span></div>
+        <div>
+          <div id="stat-total-jobs" class="stat-value">-</div>
+          <div class="stat-label">Active / Total Jobs</div>
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-icon" style="background-color: rgba(245, 158, 11, 0.15); color: #fbbf24;"><span class="material-icons icon-md">assignment</span></div>
+        <div>
+          <div id="stat-total-applications" class="stat-value">-</div>
+          <div class="stat-label">Applications</div>
+        </div>
+      </div>
+
+      <div class="card stat-card">
+        <div class="stat-icon" style="background-color: rgba(168, 85, 247, 0.15); color: #c084fc;"><span class="material-icons icon-md">event</span></div>
+        <div>
+          <div id="stat-total-interviews" class="stat-value">-</div>
+          <div class="stat-label">Interviews</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Job Categories Management -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3><span class="material-icons icon-sm" style="color:var(--accent-cyan); vertical-align:-2px;">category</span> Job Categories</h3>
+        <button id="add-category-btn" class="btn btn-primary btn-sm"><span class="material-icons icon-sm">add</span> Add Category</button>
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Category Name</th>
+              <th>Description</th>
+              <th>Jobs Count</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="categories-table-body">
+            <tr><td colspan="4" style="text-align: center;" class="text-muted">Loading categories...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- System Jobs Overview -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3><span class="material-icons icon-sm" style="color:var(--accent-blue); vertical-align:-2px;">list_alt</span> All System Jobs</h3>
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Job Title</th>
+              <th>Recruiter</th>
+              <th>Category</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="all-jobs-table-body">
+            <tr><td colspan="6" style="text-align: center;" class="text-muted">Loading all system jobs...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="pagination-container"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/api/admin.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    async function loadStats() {
+      try {
+        const res = await window.adminApi.getStats();
+        const stats = res.data;
+        document.getElementById('stat-total-users').innerText = stats.users.total;
+        document.getElementById('stat-total-jobs').innerText = `${stats.jobs.open} / ${stats.jobs.total}`;
+        document.getElementById('stat-total-applications').innerText = stats.applications.total;
+        document.getElementById('stat-total-interviews').innerText = stats.interviews.total;
+      } catch (err) {
+        console.error("Error loading stats", err);
+      }
+    }
+
+    async function loadCategories() {
+      const tbody = document.getElementById('categories-table-body');
+      try {
+        const res = await window.adminApi.listCategories();
+        const categories = res.data.categories || [];
+
+        if (categories.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;" class="text-muted">No categories created yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = categories.map(cat => `
+          <tr>
+            <td><strong>${cat.name}</strong></td>
+            <td style="color:var(--md-sys-color-on-surface-variant); font-weight: 500; font-size:0.88rem;">${cat.description || '—'}</td>
+            <td><span class="badge" style="background:rgba(255,255,255,0.06); color:var(--accent-cyan);">${cat.job_count} Jobs</span></td>
+            <td>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn-icon btn-icon-secondary" onclick="openEditCategoryModal(${cat.id}, '${cat.name.replace(/'/g, "\\'")}', '${(cat.description || '').replace(/'/g, "\\'")}')" data-tooltip="Edit Category" title="Edit Category">
+                  <span class="material-icons">edit</span>
+                </button>
+                <button class="btn-icon btn-icon-danger" onclick="confirmDeleteCategory(${cat.id}, '${cat.name.replace(/'/g, "\\'")}')" data-tooltip="Delete Category" title="Delete Category">
+                  <span class="material-icons">delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--md-sys-color-error); text-align:center;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadAllJobs(page = 1) {
+      const tbody = document.getElementById('all-jobs-table-body');
+      const pagContainer = document.getElementById('pagination-container');
+
+      try {
+        const res = await window.adminApi.listAllJobs(page, 10);
+        const { items, pagination } = res.data;
+
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;" class="text-muted">No jobs in the system.</td></tr>';
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = items.map(j => `
+          <tr>
+            <td><strong><a href="/pages/job-detail.html?id=${j.id}" style="color:var(--accent-cyan); text-decoration:none;">${j.title}</a></strong></td>
+            <td>${j.recruiter?.name || 'Recruiter #' + j.recruiter_id} (${j.recruiter?.email || ''})</td>
+            <td>${j.category_name || 'General'}</td>
+            <td>${j.location || 'Remote'}</td>
+            <td><span class="badge badge-${j.status}">${j.status}</span></td>
+            <td>${window.DateFormat.formatDate(j.created_at)}</td>
+          </tr>
+        `).join('');
+
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadAllJobs(targetPage);
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--md-sys-color-error); text-align:center;">Error: ${err.message}</td></tr>`;
+      }
+    }
+
+    function openAddCategoryModal() {
+      const bodyHtml = `
+        <div class="form-group">
+          <label class="form-label" for="cat-name">Category Name *</label>
+          <input type="text" id="cat-name" class="form-control" placeholder="e.g. Artificial Intelligence" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cat-desc">Description</label>
+          <textarea id="cat-desc" class="form-control" placeholder="Roles and specializations included..."></textarea>
+        </div>
+      `;
+
+      window.Modal.create({
+        title: 'Add New Job Category',
+        bodyHtml,
+        confirmText: 'Create Category',
+        onConfirm: async (backdrop) => {
+          const name = backdrop.querySelector('#cat-name').value.trim();
+          const desc = backdrop.querySelector('#cat-desc').value.trim();
+          if (!name) {
+            window.Toast.error("Category name is required");
+            return false;
+          }
+          try {
+            await window.adminApi.createCategory(name, desc);
+            window.Toast.success('Category created successfully');
+            loadCategories();
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    function openEditCategoryModal(catId, currentName, currentDesc) {
+      const bodyHtml = `
+        <div class="form-group">
+          <label class="form-label" for="edit-cat-name">Category Name *</label>
+          <input type="text" id="edit-cat-name" class="form-control" value="${currentName}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-cat-desc">Description</label>
+          <textarea id="edit-cat-desc" class="form-control">${currentDesc}</textarea>
+        </div>
+      `;
+
+      window.Modal.create({
+        title: 'Edit Job Category',
+        bodyHtml,
+        confirmText: 'Save Changes',
+        onConfirm: async (backdrop) => {
+          const name = backdrop.querySelector('#edit-cat-name').value.trim();
+          const desc = backdrop.querySelector('#edit-cat-desc').value.trim();
+          if (!name) {
+            window.Toast.error("Category name is required");
+            return false;
+          }
+          try {
+            await window.adminApi.updateCategory(catId, name, desc);
+            window.Toast.success('Category updated successfully');
+            loadCategories();
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    function confirmDeleteCategory(catId, catName) {
+      window.Modal.create({
+        title: 'Delete Category',
+        bodyHtml: `<p>Are you sure you want to delete category <strong>${catName}</strong>?</p>`,
+        confirmText: 'Delete Category',
+        onConfirm: async () => {
+          try {
+            await window.adminApi.deleteCategory(catId);
+            window.Toast.success('Category deleted');
+            loadCategories();
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      loadStats();
+      loadCategories();
+      loadAllJobs(1);
+
+      document.getElementById('add-category-btn').addEventListener('click', openAddCategoryModal);
+    });
+  </script>
+</body>
+</html>

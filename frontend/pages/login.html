@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="max-width: 460px; width: 100%;">
+      <!-- Standard Login View -->
+      <div id="login-view">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2>Sign In to Your Account</h2>
+          <p class="text-muted" style="margin-top: 6px;">Access your candidate profile, recruiter dashboard, or admin tools.</p>
+        </div>
+
+        <div id="alert-box" style="display: none; padding: 12px; border-radius: var(--md-sys-radius-sm); margin-bottom: 16px; font-size: 0.9rem;"></div>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="email">Email Address</label>
+            <input type="email" id="email" class="form-control" placeholder="name@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" for="password">Password</label>
+              <a href="/pages/forgot-password.html" style="font-size: 0.8rem; color: var(--md-sys-color-primary); text-decoration: none;">Forgot password?</a>
+            </div>
+            <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+          </div>
+
+          <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Sign In</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 20px; font-size: 0.9rem;">
+          <span class="text-muted">Don't have an account?</span>
+          <a href="/pages/register.html" style="color: var(--md-sys-color-primary); font-weight: 600; text-decoration: none; margin-left: 4px;">Sign Up</a>
+        </div>
+
+
+      </div>
+
+      <!-- OTP Verification View (First Login) -->
+      <div id="otp-view" style="display: none;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(0, 240, 255, 0.12); border: 1px solid var(--accent-cyan); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+            <span class="material-icons" style="color: var(--accent-cyan); font-size: 28px;">mark_email_read</span>
+          </div>
+          <h2>Verify Your Email</h2>
+          <p class="text-muted" style="margin-top: 6px; font-size: 0.88rem;">
+            A 6-digit verification code has been sent via SMTP to:
+            <br><strong id="otp-target-email" style="color: var(--accent-cyan); word-break: break-all;"></strong>
+          </p>
+        </div>
+
+        <div id="otp-alert-box" style="display: none; padding: 12px; border-radius: var(--md-sys-radius-sm); margin-bottom: 16px; font-size: 0.9rem;"></div>
+
+        <form id="otp-form">
+          <div class="form-group" style="text-align: center;">
+            <label class="form-label" for="otp-code">Enter 6-Digit Code</label>
+            <input type="text" id="otp-code" class="form-control" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code" style="text-align: center; font-size: 1.75rem; letter-spacing: 0.35em; font-family: var(--font-mono); font-weight: 700; height: 56px;" required>
+            <span class="text-muted" style="font-size: 0.78rem; margin-top: 6px;">Code expires in 10 minutes</span>
+          </div>
+
+          <button type="submit" id="otp-submit-btn" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+            <span class="material-icons icon-sm">verified</span> Verify & Sign In
+          </button>
+        </form>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; font-size: 0.85rem;">
+          <button type="button" id="back-to-login-btn" style="background: none; border: none; color: var(--md-sys-color-primary); cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px;">
+            <span class="material-icons icon-sm">arrow_back</span> Change Credentials
+          </button>
+          <button type="button" id="resend-otp-btn" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; padding: 0; font-weight: 600;">
+            Resend OTP
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let pendingOtpEmail = '';
+    let resendTimer = null;
+    let resendSeconds = 0;
+
+    function showOtpView(email) {
+      pendingOtpEmail = email;
+      document.getElementById('login-view').style.display = 'none';
+      document.getElementById('otp-view').style.display = 'block';
+      document.getElementById('otp-target-email').innerText = email;
+      document.getElementById('otp-code').value = '';
+      document.getElementById('otp-code').focus();
+      startResendCountdown(60);
+    }
+
+    function showLoginView() {
+      document.getElementById('otp-view').style.display = 'none';
+      document.getElementById('login-view').style.display = 'block';
+      if (resendTimer) clearInterval(resendTimer);
+    }
+
+    function startResendCountdown(seconds) {
+      resendSeconds = seconds;
+      const resendBtn = document.getElementById('resend-otp-btn');
+      resendBtn.disabled = true;
+      resendBtn.style.opacity = '0.6';
+      resendBtn.style.cursor = 'not-allowed';
+
+      if (resendTimer) clearInterval(resendTimer);
+      resendTimer = setInterval(() => {
+        resendSeconds--;
+        if (resendSeconds <= 0) {
+          clearInterval(resendTimer);
+          resendBtn.disabled = false;
+          resendBtn.innerText = 'Resend OTP';
+          resendBtn.style.opacity = '1';
+          resendBtn.style.cursor = 'pointer';
+        } else {
+          resendBtn.innerText = `Resend in ${resendSeconds}s`;
+        }
+      }, 1000);
+    }
+
+    function routeUserByRole(role) {
+      setTimeout(() => {
+        if (role === 'admin') {
+          window.location.href = '/pages/admin/dashboard.html';
+        } else if (role === 'recruiter') {
+          window.location.href = '/pages/recruiter/dashboard.html';
+        } else {
+          window.location.href = '/pages/candidate/dashboard.html';
+        }
+      }, 400);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const alertBox = document.getElementById('alert-box');
+      const otpAlertBox = document.getElementById('otp-alert-box');
+
+      if (urlParams.get('verified') === '1') {
+        alertBox.style.display = 'block';
+        alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+        alertBox.style.color = '#34d399';
+        alertBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        alertBox.innerText = 'Your email has been verified! You can now log in.';
+      } else if (urlParams.get('expired') === '1') {
+        alertBox.style.display = 'block';
+        alertBox.style.background = 'rgba(245, 158, 11, 0.15)';
+        alertBox.style.color = '#fbbf24';
+        alertBox.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+        alertBox.innerText = 'Your session has expired. Please log in again.';
+      }
+
+      // Check if redirected with email waiting for OTP verification
+      const verifyEmailParam = urlParams.get('verify_email');
+      if (verifyEmailParam) {
+        showOtpView(verifyEmailParam);
+      }
+
+      // Login form submission
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submit-btn');
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Signing in...';
+        alertBox.style.display = 'none';
+
+        try {
+          const res = await window.authApi.login(email, password);
+          
+          // If first-login OTP verification is required
+          if (res.data && res.data.requires_otp) {
+            window.Toast.info(res.message || 'OTP verification required.');
+            showOtpView(res.data.email || email);
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Sign In';
+            return;
+          }
+
+          window.Toast.success('Login successful!');
+          routeUserByRole(res.data.user.role);
+        } catch (err) {
+          alertBox.style.display = 'block';
+          alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          alertBox.style.color = '#f87171';
+          alertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          alertBox.innerText = err.message;
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'Sign In';
+        }
+      });
+
+      // OTP Form Submission
+      document.getElementById('otp-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const otpSubmitBtn = document.getElementById('otp-submit-btn');
+        const otpCode = document.getElementById('otp-code').value.trim();
+
+        if (!otpCode || otpCode.length !== 6) {
+          otpAlertBox.style.display = 'block';
+          otpAlertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          otpAlertBox.style.color = '#f87171';
+          otpAlertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          otpAlertBox.innerText = 'Please enter a valid 6-digit OTP code.';
+          return;
+        }
+
+        otpSubmitBtn.disabled = true;
+        otpSubmitBtn.innerText = 'Verifying...';
+        otpAlertBox.style.display = 'none';
+
+        try {
+          const res = await window.authApi.verifyOtp(pendingOtpEmail, otpCode, 'first_login_verify');
+          window.Toast.success('Account verified successfully!');
+          routeUserByRole(res.data.user.role);
+        } catch (err) {
+          otpAlertBox.style.display = 'block';
+          otpAlertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          otpAlertBox.style.color = '#f87171';
+          otpAlertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          otpAlertBox.innerText = err.message || 'Verification failed. Please check the code.';
+          otpSubmitBtn.disabled = false;
+          otpSubmitBtn.innerHTML = '<span class="material-icons icon-sm">verified</span> Verify & Sign In';
+        }
+      });
+
+      // Resend OTP button
+      document.getElementById('resend-otp-btn').addEventListener('click', async () => {
+        if (resendSeconds > 0) return;
+        try {
+          await window.authApi.resendOtp(pendingOtpEmail, 'first_login_verify');
+          window.Toast.success('A new 6-digit OTP has been sent to your email!');
+          startResendCountdown(60);
+        } catch (err) {
+          window.Toast.error(err.message || 'Failed to resend OTP.');
+        }
+      });
+
+      // Back to login button
+      document.getElementById('back-to-login-btn').addEventListener('click', () => {
+        showLoginView();
+      });
+    });
+  </script>
+</body>
+</html>

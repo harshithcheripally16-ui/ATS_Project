@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Details - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="max-width: 900px;">
+    <div style="margin-bottom: 16px;">
+      <a href="/pages/jobs.html" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+        <span class="material-icons icon-sm">arrow_back</span> Back to Job Search
+      </a>
+    </div>
+
+    <div id="job-content">
+      <p class="text-muted">Loading job details...</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/api/jobs.js"></script>
+  <script src="/js/api/candidates.js"></script>
+  <script src="/js/api/applications.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/apply-modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let currentJob = null;
+
+    function openApplyJobModal() {
+      if (!currentJob) return;
+      window.ApplyModal.open({
+        jobId: currentJob.id,
+        jobTitle: currentJob.title,
+        jobLocation: currentJob.location || 'Remote',
+        onApplied: () => {
+          const btn = document.getElementById('apply-btn');
+          if (btn) {
+            btn.outerHTML = `<span class="badge badge-selected" style="padding: 10px 18px; font-size: 0.92rem;"><span class="material-icons icon-sm">check_circle</span> Application & Resume Submitted</span>`;
+          }
+        }
+      });
+    }
+
+    async function loadJob() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobId = urlParams.get('id');
+      const container = document.getElementById('job-content');
+
+      if (!jobId) {
+        container.innerHTML = '<p class="text-muted">No Job ID provided.</p>';
+        return;
+      }
+
+      try {
+        const res = await window.jobsApi.getJob(jobId);
+        currentJob = res.data.job;
+        const user = window.authApi.getCurrentUser();
+
+        let applyActionHtml = '';
+        let atsCompatibilityHtml = '';
+
+        if (!user) {
+          applyActionHtml = `<a href="/pages/login.html?redirect=${encodeURIComponent(window.location.href)}" class="btn btn-primary"><span class="material-icons icon-sm">login</span> Login to Apply</a>`;
+        } else if (user.role === 'candidate') {
+          applyActionHtml = `<button id="apply-btn" class="btn btn-primary" onclick="openApplyJobModal()"><span class="material-icons icon-sm">send</span> Apply for this Job</button>`;
+          try {
+            const candRes = await window.candidatesApi.getProfile();
+            const candProfile = candRes.data && candRes.data.profile ? candRes.data.profile : null;
+            if (candProfile) {
+              const rawJobSkills = currentJob.skills || [];
+              const jobSkills = (Array.isArray(rawJobSkills) ? rawJobSkills : rawJobSkills.split(',')).map(s => s.trim().toLowerCase()).filter(Boolean);
+              const rawCandSkills = candProfile.skills || '';
+              const candSkills = (Array.isArray(rawCandSkills) ? rawCandSkills : rawCandSkills.split(',')).map(s => s.trim().toLowerCase()).filter(Boolean);
+              const matched = jobSkills.filter(js => candSkills.some(cs => cs === js || cs.includes(js) || js.includes(cs)));
+              const score = jobSkills.length > 0 ? Math.round((matched.length / jobSkills.length) * 100) : 85;
+              const badgeStyle = score >= 75 ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : (score >= 50 ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);' : 'background: rgba(148, 163, 184, 0.15); color: var(--md-sys-color-on-surface-variant); border: 1px solid var(--md-sys-color-outline);');
+              atsCompatibilityHtml = `
+                <div style="background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: var(--md-sys-radius-sm); padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                  <div>
+                    <div style="font-size: 0.74rem; font-family: var(--font-mono); color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">// YOUR ATS ROLE MATCH</div>
+                    <div style="font-weight: 700; font-size: 1.05rem; color: var(--md-sys-color-on-surface); display: flex; align-items: center; gap: 8px;">
+                      Estimated Profile Match: <span class="badge" style="${badgeStyle} font-family: var(--font-mono); font-size: 0.85rem;"><span class="material-icons" style="font-size: 14px;">speed</span> ${score}% Match</span>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.82rem; margin-top: 3px;">
+                      ${matched.length} of ${jobSkills.length} required skill${jobSkills.length === 1 ? '' : 's'} matched in your candidate profile.
+                    </div>
+                  </div>
+                  <button class="btn btn-secondary btn-sm" onclick="openApplyJobModal()" style="font-size: 0.82rem; padding: 6px 14px;">
+                    <span class="material-icons icon-sm">send</span> Quick Apply
+                  </button>
+                </div>
+              `;
+            }
+          } catch (e) {
+            console.warn("Could not load candidate profile for ATS preview", e);
+          }
+        } else if (user.role === 'recruiter' || user.role === 'admin') {
+          applyActionHtml = `<a href="/pages/recruiter/applicants.html?job_id=${currentJob.id}" class="btn btn-secondary"><span class="material-icons icon-sm">people</span> Manage Applicants (${currentJob.applicant_count || 0})</a>`;
+        }
+
+        container.innerHTML = `
+          <div class="card" style="margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+              <div>
+                <h1 style="font-size: 2.1rem; margin-bottom: 10px;">${currentJob.title}</h1>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  ${currentJob.category_name ? `<span class="badge badge-category">${currentJob.category_name}</span>` : ''}
+                  <span class="badge badge-${currentJob.status}">${currentJob.status}</span>
+                  <span class="text-muted">Posted: ${window.DateFormat.formatDate(currentJob.created_at)}</span>
+                </div>
+              </div>
+              <div>${applyActionHtml}</div>
+            </div>
+
+            <!-- Candidate ATS Match Preview (if candidate) -->
+            ${atsCompatibilityHtml}
+
+            <!-- Responsive Metadata Bar -->
+            <div class="grid grid-cols-3" style="background: var(--bg-surface-elevated); border: 1px solid var(--md-sys-color-outline); padding: 20px; border-radius: var(--md-sys-radius-sm); margin-bottom: 28px; box-shadow: var(--md-sys-elevation-1);">
+              <div>
+                <div style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-cyan); margin-bottom: 6px;">Location</div>
+                <div style="font-weight: 700; font-size: 1.05rem; color: var(--md-sys-color-on-surface);">${currentJob.location || 'Remote'}</div>
+              </div>
+              <div>
+                <div style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-cyan); margin-bottom: 6px;">Experience Required</div>
+                <div style="font-weight: 700; font-size: 1.05rem; color: var(--md-sys-color-on-surface);">${currentJob.experience || 'Not specified'}</div>
+              </div>
+              <div>
+                <div style="font-family: var(--font-mono); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-cyan); margin-bottom: 6px;">Compensation</div>
+                <div style="font-weight: 700; font-size: 1.05rem; color: var(--accent-cyan); font-family: var(--font-mono);">${currentJob.salary || 'Competitive'}</div>
+              </div>
+            </div>
+
+            ${currentJob.skills && currentJob.skills.length > 0 ? `
+              <div style="margin-bottom: 28px;">
+                <h3 style="font-size: 1.15rem; margin-bottom: 12px;">Desired Skills</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                  ${currentJob.skills.map(s => `<span class="badge badge-skill" style="font-size:0.85rem; padding: 6px 12px;">${s}</span>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <div style="margin-bottom: 28px;">
+              <h3 style="font-size: 1.15rem; margin-bottom: 12px;">Job Description</h3>
+              <div style="white-space: pre-wrap; line-height: 1.7; color: var(--md-sys-color-on-surface); font-size: 1rem; background: var(--bg-surface-glass); padding: 20px; border-radius: var(--md-sys-radius-sm); border: 1px solid var(--md-sys-color-outline);">${currentJob.description}</div>
+            </div>
+
+            ${currentJob.deadline ? `
+              <div style="border-top: 1px solid var(--md-sys-color-outline); padding-top: 16px; font-size: 0.9rem; color: var(--md-sys-color-on-surface-variant); display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons icon-sm" style="color: var(--accent-cyan);">event</span>
+                Application Deadline: <strong style="color: var(--md-sys-color-on-surface);">${window.DateFormat.formatDate(currentJob.deadline)}</strong>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p style="color:var(--md-sys-color-error);">Error loading job details: ${err.message}</p>`;
+      }
+    }
+
+    function applyJob(jobId) {
+      openApplyJobModal();
+    }
+
+    document.addEventListener('DOMContentLoaded', loadJob);
+  </script>
+</body>
+</html>

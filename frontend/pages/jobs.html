@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explore Jobs - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <div style="margin-bottom: 32px;">
+      <div class="mono-tag" style="margin-bottom: 6px;">// JOB CATALOG</div>
+      <h2>Search Available Openings</h2>
+      <p class="text-muted">Explore career opportunities across engineering, product, design, and data.</p>
+    </div>
+
+    <!-- Search and Filters Card -->
+    <div class="card search-filter-card">
+      <form id="filter-form" class="filters-row">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="keyword">Keywords</label>
+          <input type="text" id="keyword" class="form-control" placeholder="Title, keywords...">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="skill">Skill</label>
+          <input type="text" id="skill" class="form-control" placeholder="e.g. Python, React">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="location">Location</label>
+          <input type="text" id="location" class="form-control" placeholder="City or Remote">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="category_id">Category</label>
+          <select id="category_id" class="form-select">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="submit" class="btn btn-primary" style="height: 44px;">Search</button>
+          <button type="button" id="reset-btn" class="btn btn-secondary" style="height: 44px;">Reset</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Jobs Results Grid -->
+    <div id="jobs-container" class="grid grid-cols-2" style="margin-bottom: 32px;">
+      <p class="text-muted">Loading available job openings...</p>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div id="pagination-container"></div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/api/jobs.js"></script>
+  <script src="/js/api/candidates.js"></script>
+  <script src="/js/api/applications.js"></script>
+  <script src="/js/api/admin.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/apply-modal.js"></script>
+  <script src="/js/components/card.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let currentPage = 1;
+    let debounceTimer = null;
+
+    async function loadCategories() {
+      try {
+        const res = await window.adminApi.listCategories();
+        const select = document.getElementById('category_id');
+        const cats = res.data.categories || [];
+        cats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        console.error("Could not load categories", err);
+      }
+    }
+
+    async function loadJobs(page = 1) {
+      currentPage = page;
+      const container = document.getElementById('jobs-container');
+      const pagContainer = document.getElementById('pagination-container');
+      
+      // Render shimmer skeleton cards while fetching
+      window.CardComponent.renderSkeletonsInto(container, 4);
+
+      const user = window.authApi ? window.authApi.getCurrentUser() : null;
+
+      const params = {
+        page,
+        limit: 8,
+        status: 'open',
+        keyword: document.getElementById('keyword').value.trim(),
+        skill: document.getElementById('skill').value.trim(),
+        location: document.getElementById('location').value.trim(),
+        category_id: document.getElementById('category_id').value
+      };
+
+      try {
+        const res = await window.jobsApi.listJobs(params);
+        const { items, pagination } = res.data;
+
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 48px;">
+              <span class="material-icons icon-lg" style="color: var(--accent-cyan); font-size: 48px; margin-bottom: 12px;">search_off</span>
+              <h3>No matching jobs found</h3>
+              <p class="text-muted" style="margin-top: 8px;">Try clearing search filters or checking back later.</p>
+              <button onclick="document.getElementById('reset-btn').click()" class="btn btn-secondary btn-sm" style="margin-top: 16px;">
+                <span class="material-icons icon-sm">restart_alt</span> Reset All Filters
+              </button>
+            </div>
+          `;
+          pagContainer.innerHTML = '';
+          return;
+        }
+
+        container.innerHTML = items.map(job => window.CardComponent.renderJobCard(job, {
+          userRole: user ? user.role : null
+        })).join('');
+
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadJobs(targetPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      } catch (err) {
+        container.innerHTML = `
+          <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 36px; border-color: var(--md-sys-color-error);">
+            <span class="material-icons icon-lg" style="color: var(--md-sys-color-error); font-size: 48px; margin-bottom: 12px;">error_outline</span>
+            <h3 style="color: var(--md-sys-color-error);">Unable to Load Jobs</h3>
+            <p class="text-muted" style="margin-top: 8px;">${err.message}</p>
+            <button onclick="loadJobs(currentPage)" class="btn btn-primary btn-sm" style="margin-top: 16px;">
+              <span class="material-icons icon-sm">refresh</span> Retry Search
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function triggerDebouncedSearch() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadJobs(1);
+      }, 300);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+      loadJobs(1);
+
+      document.getElementById('filter-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        loadJobs(1);
+      });
+
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        document.getElementById('filter-form').reset();
+        loadJobs(1);
+      });
+
+      // Attach live debounced input listeners across all filter fields
+      ['keyword', 'skill', 'location', 'category_id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', triggerDebouncedSearch);
+          el.addEventListener('change', triggerDebouncedSearch);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

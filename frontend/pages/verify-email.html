@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Email - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+    <div class="card" style="max-width: 480px; width: 100%; text-align: center;">
+      <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(0, 240, 255, 0.12); border: 1px solid var(--accent-cyan); display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
+        <span class="material-icons" style="color: var(--accent-cyan); font-size: 28px;">verified_user</span>
+      </div>
+      <h2 style="margin-bottom: 8px;">Account Verification</h2>
+      <p class="text-muted" style="font-size: 0.88rem; margin-bottom: 20px;">Verify your identity to activate your ATS account.</p>
+      
+      <div id="status-spinner" style="margin: 24px 0;">
+        <p class="text-muted">Verifying your token...</p>
+      </div>
+
+      <div id="result-box" style="display: none; padding: 16px; border-radius: var(--md-sys-radius-sm); margin: 20px 0; font-size: 0.95rem;"></div>
+
+      <div id="manual-form" style="display: none; text-align: left; margin-top: 16px;">
+        <form id="otp-verify-form">
+          <div class="form-group">
+            <label class="form-label" for="manual-email">Account Email</label>
+            <input type="email" id="manual-email" class="form-control" placeholder="name@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="manual-otp">6-Digit Verification Code (OTP)</label>
+            <input type="text" id="manual-otp" class="form-control" placeholder="123456" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" style="text-align: center; font-size: 1.5rem; letter-spacing: 0.3em; font-family: var(--font-mono); font-weight: 700;" required>
+            <span class="text-muted" style="font-size: 0.78rem; margin-top: 4px;">Sent to your email via SMTP</span>
+          </div>
+
+          <button type="submit" id="manual-verify-btn" class="btn btn-primary" style="width: 100%; margin-top: 6px;">
+            <span class="material-icons icon-sm">check_circle</span> Verify Account
+          </button>
+        </form>
+      </div>
+
+      <div style="margin-top: 24px;">
+        <a href="/pages/login.html" class="btn btn-secondary">Proceed to Login</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    async function doVerifyToken(token) {
+      const spinner = document.getElementById('status-spinner');
+      const resultBox = document.getElementById('result-box');
+      const manualForm = document.getElementById('manual-form');
+
+      try {
+        const res = await window.authApi.verifyEmail(token);
+        spinner.style.display = 'none';
+        resultBox.style.display = 'block';
+        resultBox.style.background = 'rgba(16, 185, 129, 0.15)';
+        resultBox.style.color = '#34d399';
+        resultBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        resultBox.innerHTML = `<strong>Verification Successful!</strong><br>${res.message}`;
+        manualForm.style.display = 'none';
+      } catch (err) {
+        spinner.style.display = 'none';
+        resultBox.style.display = 'block';
+        resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        resultBox.style.color = '#f87171';
+        resultBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resultBox.innerHTML = `<strong>Verification Failed</strong><br>${err.message}`;
+        manualForm.style.display = 'block';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const email = urlParams.get('email');
+
+      if (email) {
+        document.getElementById('manual-email').value = email;
+      }
+
+      if (token) {
+        doVerifyToken(token);
+      } else {
+        document.getElementById('status-spinner').style.display = 'none';
+        document.getElementById('manual-form').style.display = 'block';
+      }
+
+      document.getElementById('otp-verify-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const em = document.getElementById('manual-email').value.trim();
+        const otp = document.getElementById('manual-otp').value.trim();
+        const resultBox = document.getElementById('result-box');
+        const submitBtn = document.getElementById('manual-verify-btn');
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Verifying...';
+
+        try {
+          const res = await window.authApi.verifyOtp(em, otp, 'first_login_verify');
+          resultBox.style.display = 'block';
+          resultBox.style.background = 'rgba(16, 185, 129, 0.15)';
+          resultBox.style.color = '#34d399';
+          resultBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          resultBox.innerHTML = `<strong>Verification Successful!</strong><br>Welcome, ${res.data.user.name}! Redirecting...`;
+          setTimeout(() => {
+            const role = res.data.user.role;
+            if (role === 'admin') window.location.href = '/pages/admin/dashboard.html';
+            else if (role === 'recruiter') window.location.href = '/pages/recruiter/dashboard.html';
+            else window.location.href = '/pages/candidate/dashboard.html';
+          }, 1200);
+        } catch (err) {
+          resultBox.style.display = 'block';
+          resultBox.style.background = 'rgba(239, 68, 68, 0.15)';
+          resultBox.style.color = '#f87171';
+          resultBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          resultBox.innerHTML = `<strong>Verification Failed</strong><br>${err.message}`;
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span class="material-icons icon-sm">check_circle</span> Verify Account';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

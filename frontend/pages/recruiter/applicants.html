@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Applicants Review & Pipeline - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Pipeline Metrics Ribbon */
+    .pipeline-metrics-ribbon {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .pipeline-metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-radius-sm);
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pipeline-metric-card:hover, .pipeline-metric-card.active {
+      transform: translateY(-2px);
+      box-shadow: var(--md-sys-elevation-2);
+    }
+
+    .pipeline-metric-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+
+    .metric-applied::before { background: #3b82f6; }
+    .metric-shortlisted::before { background: #f59e0b; }
+    .metric-interview_scheduled::before { background: #a855f7; }
+    .metric-selected::before { background: #10b981; }
+    .metric-rejected::before { background: #ef4444; }
+
+    .pipeline-metric-card.active {
+      border-color: var(--accent-cyan);
+      background: rgba(0, 240, 255, 0.05);
+    }
+
+    [data-theme="light"] .pipeline-metric-card.active {
+      background: rgba(2, 132, 199, 0.06);
+    }
+
+    .metric-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .metric-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--md-sys-color-on-surface-variant);
+      font-weight: 600;
+    }
+
+    /* Candidate Avatar Badge */
+    .candidate-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+      flex-shrink: 0;
+    }
+
+    /* Ashby-Style Kanban Board Layout */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(260px, 1fr));
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 20px;
+      align-items: start;
+    }
+
+    .kanban-column {
+      background: var(--bg-surface);
+      border-radius: var(--md-sys-radius-md);
+      border: 1px solid var(--md-sys-color-outline);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      min-height: 560px;
+      transition: all 0.25s ease;
+    }
+
+    .kanban-column.valid-drop-target {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+      background: rgba(0, 240, 255, 0.04);
+    }
+
+    .kanban-column.invalid-drop-target {
+      opacity: 0.45;
+      pointer-events: none;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .kanban-column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--md-sys-color-outline);
+    }
+
+    .kanban-column-header h4 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      letter-spacing: 0.05em;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kanban-cards-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+      min-height: 100px;
+    }
+
+    .kanban-card {
+      background: var(--bg-surface-glass);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-radius-sm);
+      padding: 14px;
+      cursor: grab;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .kanban-card:active {
+      cursor: grabbing;
+    }
+
+    .kanban-card.dragging {
+      opacity: 0.4;
+      transform: scale(0.97);
+      border-color: var(--accent-cyan);
+    }
+
+    .kanban-card:hover {
+      border-color: rgba(0, 240, 255, 0.4);
+      transform: translateY(-2px);
+      box-shadow: var(--md-sys-elevation-2);
+    }
+
+    [data-theme="light"] .kanban-card:hover {
+      border-color: rgba(2, 132, 199, 0.4);
+    }
+
+    /* ATS Compatibility Score Badges & Meters */
+    .badge-ats-strong {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-ats-good {
+      background: rgba(0, 240, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-ats-moderate {
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-ats-low {
+      background: rgba(148, 163, 184, 0.15);
+      color: var(--md-sys-color-on-surface-variant);
+      border: 1px solid var(--md-sys-color-outline);
+      font-weight: 700;
+      font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Candidate Table Row */
+    .table td {
+      vertical-align: middle;
+    }
+
+    @media (max-width: 1200px) {
+      .pipeline-metrics-ribbon {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .kanban-board {
+        grid-template-columns: repeat(5, 290px);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .pipeline-metrics-ribbon {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container">
+    <!-- Top Action Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+      <div>
+        <div class="mono-tag" style="margin-bottom: 4px;">// RECRUITER SUITE &bull; APPLICANT REVIEW & PIPELINE</div>
+        <h2 id="page-heading" style="margin: 0 0 6px 0;">Job Applicants Review</h2>
+        <p class="text-muted" id="page-subtitle" style="margin: 0; font-size: 0.92rem;">Loading applicant submissions...</p>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <!-- View Toggle (Table ↔ Kanban) -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--md-sys-color-outline); border-radius: var(--md-sys-radius-sm); padding: 4px; display: flex; gap: 4px;">
+          <button id="view-table-btn" class="btn btn-primary btn-sm" style="padding: 6px 14px;">
+            <span class="material-icons icon-sm">table_chart</span> Table View
+          </button>
+          <button id="view-kanban-btn" class="btn btn-secondary btn-sm" style="padding: 6px 14px; border:none;">
+            <span class="material-icons icon-sm">auto_awesome</span> Smart View
+          </button>
+        </div>
+        <a href="/pages/recruiter/post-job.html" class="btn btn-primary btn-sm">
+          <span class="material-icons icon-sm">add_circle</span> Post Job
+        </a>
+        <a href="/pages/recruiter/dashboard.html" class="btn btn-secondary btn-sm">
+          <span class="material-icons icon-sm">dashboard</span> Recruiter Hub
+        </a>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card" style="margin-bottom: 24px; padding: 18px;">
+      <div style="display: grid; grid-template-columns: 2fr 1.3fr 1.2fr 1.3fr auto; gap: 14px; align-items: flex-end;">
+        <div>
+          <label class="form-label" for="job-filter" style="font-size: 0.82rem; margin-bottom: 4px;">Filter by Job Posting:</label>
+          <select id="job-filter" class="form-select" style="width: 100%;">
+            <option value="">All Job Openings (All Applicants)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="applicant-search" style="font-size: 0.82rem; margin-bottom: 4px;">Search Candidates:</label>
+          <div style="position: relative;">
+            <input type="text" id="applicant-search" class="form-control" placeholder="Search name, email, skills..." style="padding-left: 32px;">
+            <span class="material-icons icon-sm" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--md-sys-color-on-surface-variant);">search</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label" for="status-filter" style="font-size: 0.82rem; margin-bottom: 4px;">Pipeline Stage:</label>
+          <select id="status-filter" class="form-select" style="width: 100%;">
+            <option value="">All Stages</option>
+            <option value="applied">Applied</option>
+            <option value="shortlisted">Shortlisted</option>
+            <option value="interview_scheduled">Interview Scheduled</option>
+            <option value="selected">Selected</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="sort-filter" style="font-size: 0.82rem; margin-bottom: 4px;">Sort By:</label>
+          <select id="sort-filter" class="form-select" style="width: 100%;">
+            <option value="newest">Newest First</option>
+            <option value="match">Highest ATS Match Score</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+        </div>
+
+        <div>
+          <button id="reset-filters-btn" class="btn btn-secondary" style="height: 42px; padding: 0 16px;">
+            <span class="material-icons icon-sm">filter_alt_off</span> Reset
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Metrics Ribbon -->
+    <div class="pipeline-metrics-ribbon">
+      <div class="pipeline-metric-card metric-applied" data-filter-status="applied" title="Click to filter Applied">
+        <div class="metric-value" id="metric-count-applied" style="color: #3b82f6;">0</div>
+        <div class="metric-label">1. Applied</div>
+      </div>
+      <div class="pipeline-metric-card metric-shortlisted" data-filter-status="shortlisted" title="Click to filter Shortlisted">
+        <div class="metric-value" id="metric-count-shortlisted" style="color: #f59e0b;">0</div>
+        <div class="metric-label">2. Shortlisted</div>
+      </div>
+      <div class="pipeline-metric-card metric-interview_scheduled" data-filter-status="interview_scheduled" title="Click to filter Interview Scheduled">
+        <div class="metric-value" id="metric-count-interview_scheduled" style="color: #a855f7;">0</div>
+        <div class="metric-label">3. Interview</div>
+      </div>
+      <div class="pipeline-metric-card metric-selected" data-filter-status="selected" title="Click to filter Selected">
+        <div class="metric-value" id="metric-count-selected" style="color: #10b981;">0</div>
+        <div class="metric-label">4. Selected</div>
+      </div>
+      <div class="pipeline-metric-card metric-rejected" data-filter-status="rejected" title="Click to filter Rejected">
+        <div class="metric-value" id="metric-count-rejected" style="color: #ef4444;">0</div>
+        <div class="metric-label">Rejected</div>
+      </div>
+    </div>
+
+    <!-- Table View Container (Job Applicants Review) -->
+    <div id="table-view-container" class="card" style="display: block; margin-bottom: 32px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div class="mono-tag" id="table-view-tag">// DETAILED CANDIDATE SUBMISSIONS</div>
+        <span class="text-muted" style="font-size: 0.84rem;" id="table-record-count">Showing applicants</span>
+      </div>
+
+      <div class="table-container">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th>Position Applied</th>
+              <th>ATS Match</th>
+              <th>Experience & Skills</th>
+              <th>Resume</th>
+              <th>Applied Date</th>
+              <th>Pipeline Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="applicants-table-body">
+            <tr><td colspan="8" style="text-align: center; padding: 40px;" class="text-muted">Loading candidate applications...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="pagination-container" style="padding-top: 16px;"></div>
+    </div>
+
+    <!-- Ashby-Style Kanban Board View Container (Applicant Pipeline) -->
+    <div id="kanban-view-container" style="display: none; margin-bottom: 32px;">
+      <div class="kanban-board">
+        <!-- Applied Column -->
+        <div class="kanban-column" data-status="applied">
+          <div class="kanban-column-header">
+            <h4 style="color: #60a5fa;"><span class="material-icons icon-sm">inbox</span> Applied</h4>
+            <span id="count-applied" class="badge badge-applied">0</span>
+          </div>
+          <div class="kanban-cards-container" id="col-applied"></div>
+        </div>
+
+        <!-- Shortlisted Column -->
+        <div class="kanban-column" data-status="shortlisted">
+          <div class="kanban-column-header">
+            <h4 style="color: #fbbf24;"><span class="material-icons icon-sm">star</span> Shortlisted</h4>
+            <span id="count-shortlisted" class="badge badge-shortlisted">0</span>
+          </div>
+          <div class="kanban-cards-container" id="col-shortlisted"></div>
+        </div>
+
+        <!-- Interview Scheduled Column -->
+        <div class="kanban-column" data-status="interview_scheduled">
+          <div class="kanban-column-header">
+            <h4 style="color: #c084fc;"><span class="material-icons icon-sm">event</span> Interview</h4>
+            <span id="count-interview_scheduled" class="badge badge-interview_scheduled">0</span>
+          </div>
+          <div class="kanban-cards-container" id="col-interview_scheduled"></div>
+        </div>
+
+        <!-- Selected Column -->
+        <div class="kanban-column" data-status="selected">
+          <div class="kanban-column-header">
+            <h4 style="color: #34d399;"><span class="material-icons icon-sm">check_circle</span> Selected</h4>
+            <span id="count-selected" class="badge badge-selected">0</span>
+          </div>
+          <div class="kanban-cards-container" id="col-selected"></div>
+        </div>
+
+        <!-- Rejected Column -->
+        <div class="kanban-column" data-status="rejected">
+          <div class="kanban-column-header">
+            <h4 style="color: #f87171;"><span class="material-icons icon-sm">cancel</span> Rejected</h4>
+            <span id="count-rejected" class="badge badge-rejected">0</span>
+          </div>
+          <div class="kanban-cards-container" id="col-rejected"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS. Next-Gen Talent Acquisition & Pipeline Intelligence.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/api/jobs.js"></script>
+  <script src="/js/api/applications.js"></script>
+  <script src="/js/api/interviews.js"></script>
+  <script src="/js/utils/date-format.js"></script>
+  <script src="/js/components/pagination.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/modal.js"></script>
+  <script src="/js/components/offer-modal.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    let currentJobId = null;
+    let currentView = localStorage.getItem('recruiter_applicants_view') || 'table';
+    let currentApplications = [];
+    let recruiterJobs = [];
+    let draggedAppId = null;
+    let draggedCurrentStatus = null;
+    let debounceTimer = null;
+
+    function getAtsBadge(ats) {
+      if (!ats) return '<span class="badge badge-ats-low" style="font-size: 0.72rem;">N/A</span>';
+      const score = ats.score ?? 0;
+      let badgeClass = 'badge-ats-low';
+      let icon = 'sentiment_dissatisfied';
+      if (score >= 80) {
+        badgeClass = 'badge-ats-strong';
+        icon = 'verified';
+      } else if (score >= 60) {
+        badgeClass = 'badge-ats-good';
+        icon = 'auto_awesome';
+      } else if (score >= 40) {
+        badgeClass = 'badge-ats-moderate';
+        icon = 'trending_flat';
+      }
+      return `<span class="badge ${badgeClass}" title="Skills: ${ats.breakdown?.skills_score || 0}%, Exp: ${ats.breakdown?.experience_score || 0}%, Role: ${ats.breakdown?.role_score || 0}%"><span class="material-icons" style="font-size: 13px;">${icon}</span> ${score}% Match</span>`;
+    }
+
+    function openOfferModal(appId) {
+      const app = currentApplications.find(a => a.id === appId);
+      if (!app) return;
+      window.OfferModal.openRecruiterModal(app, () => {
+        loadApplicants(1);
+      });
+    }
+
+    // State Machine Transitions Matrix
+    const ALLOWED_TRANSITIONS = {
+      'applied': ['shortlisted', 'rejected'],
+      'shortlisted': ['interview_scheduled', 'rejected'],
+      'interview_scheduled': ['selected', 'rejected'],
+      'selected': [],
+      'rejected': []
+    };
+
+    function getInitials(name) {
+      if (!name) return 'CD';
+      return name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
+    }
+
+    async function loadRecruiterJobs() {
+      const user = window.authApi.getCurrentUser();
+      const jobSelect = document.getElementById('job-filter');
+      try {
+        let res;
+        if (user && user.role === 'admin') {
+          res = await window.jobsApi.listJobs({ limit: 100 });
+        } else {
+          res = await window.jobsApi.getMyJobs(1, 100);
+        }
+        recruiterJobs = res.data.items || [];
+
+        jobSelect.innerHTML = `<option value="">All Job Openings (${recruiterJobs.length} Jobs)</option>`;
+        recruiterJobs.forEach(job => {
+          const opt = document.createElement('option');
+          opt.value = job.id;
+          opt.textContent = `${job.title} — ${job.location || 'Remote'} (${job.applicant_count || 0} applicants)`;
+          if (currentJobId && String(currentJobId) === String(job.id)) {
+            opt.selected = true;
+          }
+          jobSelect.appendChild(opt);
+        });
+      } catch (err) {
+        console.error("Error loading recruiter jobs:", err);
+      }
+    }
+
+    async function loadApplicants(page = 1) {
+      const tbody = document.getElementById('applicants-table-body');
+      const pagContainer = document.getElementById('pagination-container');
+      const statusFilter = document.getElementById('status-filter').value;
+      const searchVal = document.getElementById('applicant-search').value.trim();
+      const sortVal = document.getElementById('sort-filter') ? document.getElementById('sort-filter').value : 'newest';
+
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;" class="text-muted">Loading candidate applications...</td></tr>';
+
+      try {
+        const res = await window.applicationsApi.getJobApplicants(currentJobId, page, 100, statusFilter, searchVal, sortVal);
+        const { items, pagination } = res.data;
+        currentApplications = items || [];
+
+        // Update Page Subtitle & Header
+        updateHeaderSubtitle(pagination ? pagination.total : currentApplications.length);
+
+        // Update Metrics Ribbon
+        updateMetricsRibbon(currentApplications);
+
+        // Render Table View (Job Applicants Review)
+        renderTableView(currentApplications, tbody, pagContainer, pagination);
+
+        // Render Ashby Kanban View (Applicant Pipeline)
+        renderKanbanView(currentApplications);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color:var(--md-sys-color-error); text-align:center; padding: 32px;">Failed to load applications: ${err.message}</td></tr>`;
+      }
+    }
+
+    function updateHeaderSubtitle(totalCount) {
+      const heading = document.getElementById('page-heading');
+      const subtitle = document.getElementById('page-subtitle');
+      const recordCount = document.getElementById('table-record-count');
+
+      if (currentJobId) {
+        const selectedJob = recruiterJobs.find(j => String(j.id) === String(currentJobId));
+        const jobTitle = selectedJob ? selectedJob.title : `Job #${currentJobId}`;
+        const jobLoc = selectedJob ? (selectedJob.location || 'Remote') : '';
+        heading.innerText = `Applicants for ${jobTitle}`;
+        subtitle.innerHTML = `Showing candidate submissions for <strong>${jobTitle}</strong> &bull; ${jobLoc} &bull; <strong>${totalCount}</strong> Candidate${totalCount === 1 ? '' : 's'}`;
+      } else {
+        heading.innerText = `Job Applicants Review`;
+        subtitle.innerHTML = `Complete applicant overview across all active job postings &bull; <strong>${totalCount}</strong> Total Candidate${totalCount === 1 ? '' : 's'}`;
+      }
+      recordCount.innerText = `Total: ${totalCount} Candidate${totalCount === 1 ? '' : 's'}`;
+    }
+
+    function updateMetricsRibbon(items) {
+      const counts = { applied: 0, shortlisted: 0, interview_scheduled: 0, selected: 0, rejected: 0 };
+      items.forEach(app => {
+        if (counts[app.status] !== undefined) counts[app.status]++;
+      });
+
+      document.getElementById('metric-count-applied').innerText = counts.applied;
+      document.getElementById('metric-count-shortlisted').innerText = counts.shortlisted;
+      document.getElementById('metric-count-interview_scheduled').innerText = counts.interview_scheduled;
+      document.getElementById('metric-count-selected').innerText = counts.selected;
+      document.getElementById('metric-count-rejected').innerText = counts.rejected;
+
+      const activeStatus = document.getElementById('status-filter').value;
+      document.querySelectorAll('.pipeline-metric-card').forEach(card => {
+        if (activeStatus && card.getAttribute('data-filter-status') === activeStatus) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+    }
+
+    function renderTableView(items, tbody, pagContainer, pagination) {
+      if (items.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 48px 20px;">
+              <span class="material-icons" style="font-size: 40px; color: var(--md-sys-color-on-surface-variant); opacity: 0.6; margin-bottom: 8px;">folder_off</span>
+              <p style="margin: 0; font-weight: 600; color: var(--md-sys-color-on-surface);">No candidate applications found</p>
+              <p class="text-muted" style="margin: 4px 0 0 0; font-size: 0.85rem;">Try adjusting your job filter, status filter, or search keywords.</p>
+            </td>
+          </tr>
+        `;
+        pagContainer.innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = items.map(app => {
+        const cand = app.candidate || {};
+        const job = app.job || {};
+        const canSchedule = (app.status === 'shortlisted' || app.status === 'interview_scheduled');
+        const isTerminal = (app.status === 'selected' || app.status === 'rejected');
+        const initials = getInitials(cand.name);
+
+        let interviewChip = '';
+        if (app.interviews && app.interviews.length > 0) {
+          const lastInt = app.interviews[app.interviews.length - 1];
+          interviewChip = `
+            <div style="margin-top: 4px; font-size: 0.75rem; color: #c084fc; display: flex; align-items: center; gap: 4px;">
+              <span class="material-icons" style="font-size: 13px;">event</span>
+              <span>${lastInt.date} at ${lastInt.time} (${lastInt.mode})</span>
+            </div>
+          `;
+        }
+
+        return `
+          <tr>
+            <!-- Candidate Identity & Contact -->
+            <td>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="candidate-avatar">${initials}</div>
+                <div>
+                  <a href="javascript:void(0)" onclick="openCandidateModal(${app.id})" style="font-weight: 700; font-size: 0.96rem; color: var(--md-sys-color-on-surface); text-decoration: none;">
+                    ${cand.name || 'Candidate #' + app.candidate_id}
+                  </a>
+                  <div style="font-size: 0.8rem; color: var(--md-sys-color-on-surface-variant); margin-top: 2px;">
+                    <a href="mailto:${cand.email || ''}" style="color: inherit; text-decoration: none;">${cand.email || 'No email'}</a>
+                    ${cand.phone ? `<span style="margin: 0 4px;">&bull;</span><a href="tel:${cand.phone}" style="color: inherit; text-decoration: none;">${cand.phone}</a>` : ''}
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Position Applied -->
+            <td>
+              <div style="font-weight: 600; font-size: 0.92rem; color: var(--md-sys-color-on-surface);">${job.title || 'General Application'}</div>
+              <div class="text-muted" style="font-size: 0.8rem; margin-top: 2px;">
+                ${job.location || 'Remote'}
+                ${job.salary ? ` &bull; <span style="color: var(--accent-cyan); font-family: var(--font-mono);">${job.salary}</span>` : ''}
+              </div>
+            </td>
+
+            <!-- ATS Match -->
+            <td>
+              <div>
+                ${getAtsBadge(app.ats_match)}
+                ${app.ats_match && app.ats_match.matched_skills && app.ats_match.matched_skills.length > 0 ? `
+                  <div class="text-muted" style="font-size: 0.72rem; margin-top: 4px; display: flex; align-items: center; gap: 3px;">
+                    <span class="material-icons" style="font-size: 11px; color: #10b981;">check_circle</span>
+                    <span>${app.ats_match.matched_skills.length} matched</span>
+                  </div>
+                ` : ''}
+              </div>
+            </td>
+
+            <!-- Qualifications & Experience -->
+            <td style="max-width: 260px;">
+              <div style="font-size: 0.84rem; color: var(--md-sys-color-on-surface); font-weight: 500; margin-bottom: 2px;">
+                ${cand.education ? cand.education.substring(0, 45) + (cand.education.length > 45 ? '...' : '') : 'Education details available'}
+              </div>
+              <div class="text-muted" style="font-size: 0.8rem; line-height: 1.35; margin-bottom: 6px;">
+                ${cand.experience ? cand.experience.substring(0, 65) + (cand.experience.length > 65 ? '...' : '') : 'No summary provided.'}
+              </div>
+              ${cand.skills && cand.skills.length > 0 ? `
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  ${cand.skills.slice(0, 3).map(s => `<span class="badge badge-skill" style="font-size: 0.68rem; padding: 2px 6px;">${s}</span>`).join('')}
+                  ${cand.skills.length > 3 ? `<span class="badge badge-category" style="font-size: 0.65rem; padding: 2px 4px;">+${cand.skills.length - 3}</span>` : ''}
+                </div>
+              ` : ''}
+            </td>
+
+            <!-- Resume -->
+            <td>
+              ${cand.resume_url ? `
+                <a href="${cand.resume_url}" target="_blank" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; padding: 5px 10px;">
+                  <span class="material-icons icon-sm">description</span> Resume
+                </a>
+              ` : `<span class="badge badge-draft" style="font-size: 0.72rem;">No Resume</span>`}
+            </td>
+
+            <!-- Applied Date -->
+            <td style="font-size: 0.84rem; color: var(--md-sys-color-on-surface-variant); white-space: nowrap;">
+              ${window.DateFormat ? window.DateFormat.formatDate(app.applied_date) : new Date(app.applied_date).toLocaleDateString()}
+            </td>
+
+            <!-- Pipeline Status -->
+            <td>
+              <span class="badge badge-${app.status}">${app.status.replace('_', ' ').toUpperCase()}</span>
+              ${interviewChip}
+              ${app.offer_letter ? `
+                <div style="margin-top: 4px;">
+                  <a href="javascript:void(0)" onclick="openOfferModal(${app.id})" class="badge ${app.offer_letter.status === 'accepted' ? 'badge-selected' : (app.offer_letter.status === 'declined' ? 'badge-rejected' : 'badge-shortlisted')}" style="text-decoration:none; font-size: 0.72rem; padding: 2px 6px; display: inline-flex; align-items: center; gap: 3px;">
+                    <span class="material-icons" style="font-size:12px;">local_offer</span>
+                    ${app.offer_letter.status === 'accepted' ? 'Offer Accepted' : (app.offer_letter.status === 'declined' ? 'Offer Declined' : 'Offer Sent')}
+                  </a>
+                </div>
+              ` : (app.status === 'selected' ? `
+                <div style="margin-top: 4px;">
+                  <a href="javascript:void(0)" onclick="openOfferModal(${app.id})" style="font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 3px;">
+                    <span class="material-icons" style="font-size:13px;">add_circle</span> Provide Offer
+                  </a>
+                </div>
+              ` : '')}
+            </td>
+
+            <!-- Actions -->
+            <td style="text-align: right;">
+              <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                <button class="btn btn-secondary btn-sm" onclick="openCandidateModal(${app.id})" title="View Complete Candidate Dossier" style="padding: 5px 8px;">
+                  <span class="material-icons icon-sm">visibility</span>
+                </button>
+
+                ${(app.status === 'selected' || app.offer_letter) ? `
+                  <button class="btn btn-secondary btn-sm" onclick="openOfferModal(${app.id})" title="${app.offer_letter ? 'Review / Edit Offer Letter' : 'Provide Offer Letter'}" style="padding: 5px 8px; color: var(--accent-cyan);">
+                    <span class="material-icons icon-sm">local_offer</span>
+                  </button>
+                ` : ''}
+
+                ${!isTerminal ? `
+                  <button class="btn btn-secondary btn-sm" onclick="openStatusModal(${app.id}, '${app.status}')" title="Advance / Update Pipeline Status" style="padding: 5px 8px;">
+                    <span class="material-icons icon-sm">sync_alt</span>
+                  </button>
+                ` : ''}
+
+                ${canSchedule ? `
+                  <button class="btn btn-primary btn-sm" onclick="openScheduleModal(${app.id}, '${(cand.name || 'Candidate').replace(/'/g, "\\'")}')" title="Schedule Interview" style="padding: 5px 8px;">
+                    <span class="material-icons icon-sm">event</span>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (pagination && window.PaginationComponent) {
+        window.PaginationComponent.render(pagination, pagContainer, (targetPage) => {
+          loadApplicants(targetPage);
+        });
+      }
+    }
+
+    function renderKanbanView(items) {
+      const statuses = ['applied', 'shortlisted', 'interview_scheduled', 'selected', 'rejected'];
+      const columns = {};
+
+      statuses.forEach(st => {
+        columns[st] = document.getElementById(`col-${st}`);
+        if (columns[st]) columns[st].innerHTML = '';
+        const countEl = document.getElementById(`count-${st}`);
+        if (countEl) countEl.innerText = '0';
+      });
+
+      const counts = { applied: 0, shortlisted: 0, interview_scheduled: 0, selected: 0, rejected: 0 };
+
+      items.forEach(app => {
+        const st = app.status;
+        if (counts[st] !== undefined) counts[st]++;
+
+        const cand = app.candidate || {};
+        const job = app.job || {};
+        const canSchedule = (st === 'shortlisted' || st === 'interview_scheduled');
+        const allowedNext = ALLOWED_TRANSITIONS[st] || [];
+        const initials = getInitials(cand.name);
+
+        const card = document.createElement('div');
+        card.className = 'kanban-card';
+        card.setAttribute('draggable', 'true');
+        card.setAttribute('data-app-id', app.id);
+        card.setAttribute('data-status', st);
+
+        let interviewSnippet = '';
+        if (app.interviews && app.interviews.length > 0) {
+          const latestInt = app.interviews[app.interviews.length - 1];
+          interviewSnippet = `
+            <div style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 6px 8px; margin: 8px 0; font-size: 0.74rem; color: #c084fc;">
+              <div style="font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                <span class="material-icons" style="font-size: 13px;">event</span> Interview Scheduled
+              </div>
+              <div style="margin-top: 2px;">${latestInt.date} at ${latestInt.time} (${latestInt.mode})</div>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <!-- Candidate Header -->
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <div class="candidate-avatar" style="width: 32px; height: 32px; font-size: 0.8rem; border-radius: 8px;">${initials}</div>
+            <div style="flex: 1; overflow: hidden;">
+              <div style="font-weight: 700; font-size: 0.92rem; color: var(--md-sys-color-on-surface); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${cand.name || 'Candidate #' + app.candidate_id}
+              </div>
+              <div style="font-size: 0.74rem; color: var(--accent-cyan); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${job.title || 'General'}
+              </div>
+            </div>
+          </div>
+
+          <!-- ATS Match Pill -->
+          <div style="margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+            ${getAtsBadge(app.ats_match)}
+            ${app.ats_match && app.ats_match.score ? `<span style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); font-family: var(--font-mono);">${app.ats_match.rating}</span>` : ''}
+          </div>
+
+          <!-- Contact Snippet -->
+          <div class="text-muted" style="font-size: 0.76rem; margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px;">
+            <span><span class="material-icons" style="font-size: 12px; vertical-align: -2px;">email</span> ${cand.email || 'No email'}</span>
+            ${cand.phone ? `<span><span class="material-icons" style="font-size: 12px; vertical-align: -2px;">phone</span> ${cand.phone}</span>` : ''}
+          </div>
+
+          <!-- Experience Snippet -->
+          ${cand.experience ? `
+            <div style="font-size: 0.76rem; color: var(--md-sys-color-on-surface-variant); line-height: 1.35; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+              ${cand.experience}
+            </div>
+          ` : ''}
+
+          <!-- Skills Badges -->
+          ${cand.skills && cand.skills.length > 0 ? `
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+              ${cand.skills.slice(0, 3).map(s => `<span class="badge badge-skill" style="font-size: 0.65rem; padding: 1px 5px;">${s}</span>`).join('')}
+              ${cand.skills.length > 3 ? `<span class="badge badge-category" style="font-size: 0.62rem; padding: 1px 4px;">+${cand.skills.length - 3}</span>` : ''}
+            </div>
+          ` : ''}
+
+          <!-- Interview Scheduled Alert (if any) -->
+          ${interviewSnippet}
+
+          <!-- Formal Job Offer Snippet (Selected Stage) -->
+          ${(st === 'selected' || app.offer_letter) ? `
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 6px 8px; margin: 8px 0; font-size: 0.74rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span style="font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 4px;">
+                  <span class="material-icons" style="font-size: 13px;">local_offer</span>
+                  ${app.offer_letter ? (app.offer_letter.status === 'accepted' ? 'Offer Accepted' : (app.offer_letter.status === 'declined' ? 'Offer Declined' : 'Offer Sent')) : 'Selected'}
+                </span>
+                ${app.offer_letter ? `<div class="text-muted" style="font-size: 0.7rem; margin-top: 2px;">${app.offer_letter.salary}</div>` : ''}
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="openOfferModal(${app.id})" style="padding: 2px 6px; font-size: 0.7rem;">
+                ${app.offer_letter ? 'Edit' : 'Issue'}
+              </button>
+            </div>
+          ` : ''}
+
+          <!-- Footer Actions -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--md-sys-color-outline); padding-top: 8px; margin-top: 8px;">
+            <div>
+              ${cand.resume_url ? `
+                <a href="${cand.resume_url}" target="_blank" style="color: var(--accent-cyan); font-size: 0.75rem; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px;">
+                  <span class="material-icons" style="font-size: 14px;">description</span> Resume
+                </a>
+              ` : `<span class="text-muted" style="font-size: 0.72rem;">No resume</span>`}
+            </div>
+
+            <div style="display: flex; gap: 4px;">
+              <!-- View Dossier Modal Button -->
+              <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 0.7rem;" onclick="openCandidateModal(${app.id})" title="View Complete Dossier">
+                <span class="material-icons" style="font-size: 14px;">visibility</span>
+              </button>
+
+              ${(st === 'selected' || app.offer_letter) ? `
+                <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 0.7rem; color: var(--accent-cyan);" onclick="openOfferModal(${app.id})" title="${app.offer_letter ? 'Edit Offer Letter' : 'Provide Offer Letter'}">
+                  <span class="material-icons" style="font-size: 14px;">local_offer</span>
+                </button>
+              ` : ''}
+
+              ${canSchedule ? `
+                <button class="btn btn-primary btn-sm" style="padding: 3px 6px; font-size: 0.7rem;" onclick="openScheduleModal(${app.id}, '${(cand.name || 'Candidate').replace(/'/g, "\\'")}')" title="Schedule Interview">
+                  <span class="material-icons" style="font-size: 14px;">event</span>
+                </button>
+              ` : ''}
+
+              <!-- Advance Status Button -->
+              ${allowedNext.length > 0 ? `
+                <button class="btn btn-secondary btn-sm" style="padding: 3px 6px; font-size: 0.7rem;" onclick="openStatusModal(${app.id}, '${st}')" title="Advance Stage (${allowedNext.join(', ')})">
+                  <span class="material-icons" style="font-size: 14px;">navigate_next</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+
+        // Drag Start Handler
+        card.addEventListener('dragstart', (e) => {
+          draggedAppId = app.id;
+          draggedCurrentStatus = st;
+          card.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', app.id);
+
+          const allowedTargets = ALLOWED_TRANSITIONS[st] || [];
+          document.querySelectorAll('.kanban-column').forEach(col => {
+            const colStatus = col.getAttribute('data-status');
+            if (colStatus === st || allowedTargets.includes(colStatus)) {
+              col.classList.add('valid-drop-target');
+              col.classList.remove('invalid-drop-target');
+            } else {
+              col.classList.add('invalid-drop-target');
+              col.classList.remove('valid-drop-target');
+            }
+          });
+        });
+
+        // Drag End Handler
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          draggedAppId = null;
+          draggedCurrentStatus = null;
+
+          document.querySelectorAll('.kanban-column').forEach(col => {
+            col.classList.remove('valid-drop-target', 'invalid-drop-target');
+          });
+        });
+
+        if (columns[st]) {
+          columns[st].appendChild(card);
+        }
+      });
+
+      // Update Column Counters
+      statuses.forEach(st => {
+        const countEl = document.getElementById(`count-${st}`);
+        if (countEl) countEl.innerText = counts[st] || 0;
+      });
+
+      setupKanbanDropEvents();
+    }
+
+    function setupKanbanDropEvents() {
+      document.querySelectorAll('.kanban-column').forEach(col => {
+        col.addEventListener('dragover', (e) => {
+          e.preventDefault();
+        });
+
+        col.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          const targetStatus = col.getAttribute('data-status');
+          if (!draggedAppId || !draggedCurrentStatus || targetStatus === draggedCurrentStatus) return;
+
+          const allowedTargets = ALLOWED_TRANSITIONS[draggedCurrentStatus] || [];
+          if (!allowedTargets.includes(targetStatus)) {
+            window.Toast.error(`Invalid transition: Cannot move from '${draggedCurrentStatus}' to '${targetStatus}'. Allowed: ${allowedTargets.join(', ')}`);
+            return;
+          }
+
+          try {
+            await window.applicationsApi.updateStatus(draggedAppId, targetStatus);
+            window.Toast.success(`Candidate advanced to ${targetStatus.replace('_', ' ').toUpperCase()}`);
+            loadApplicants(1);
+          } catch (err) {
+            window.Toast.error(err.message);
+            loadApplicants(1);
+          }
+        });
+      });
+    }
+
+    /**
+     * Open Complete Candidate Dossier Modal
+     */
+    function openCandidateModal(appId) {
+      const app = currentApplications.find(a => a.id === appId);
+      if (!app) {
+        window.Toast.error("Candidate application not found.");
+        return;
+      }
+
+      const cand = app.candidate || {};
+      const job = app.job || {};
+      const initials = getInitials(cand.name);
+      const isTerminal = (app.status === 'selected' || app.status === 'rejected');
+      const canSchedule = (app.status === 'shortlisted' || app.status === 'interview_scheduled');
+
+      const stages = ['applied', 'shortlisted', 'interview_scheduled', 'selected'];
+      const currentIndex = stages.indexOf(app.status);
+
+      const stepperHtml = `
+        <div class="ats-stepper" style="margin: 18px 0 24px 0;">
+          <div class="ats-step ${app.status === 'applied' ? 'active' : (currentIndex > 0 ? 'completed' : '')}">
+            <div class="ats-step-icon">${currentIndex > 0 ? '<span class="material-icons" style="font-size:14px;">check</span>' : '1'}</div>
+            <div class="ats-step-label">Applied</div>
+          </div>
+          <div class="ats-step ${app.status === 'shortlisted' ? 'active' : (currentIndex > 1 ? 'completed' : '')}">
+            <div class="ats-step-icon">${currentIndex > 1 ? '<span class="material-icons" style="font-size:14px;">check</span>' : '2'}</div>
+            <div class="ats-step-label">Shortlisted</div>
+          </div>
+          <div class="ats-step ${app.status === 'interview_scheduled' ? 'active' : (currentIndex > 2 ? 'completed' : '')}">
+            <div class="ats-step-icon">${currentIndex > 2 ? '<span class="material-icons" style="font-size:14px;">check</span>' : '3'}</div>
+            <div class="ats-step-label">Interview</div>
+          </div>
+          <div class="ats-step ${app.status === 'selected' ? 'active' : ''}">
+            <div class="ats-step-icon">4</div>
+            <div class="ats-step-label">Selected</div>
+          </div>
+        </div>
+      `;
+
+      let interviewsHtml = '<p class="text-muted" style="font-size: 0.85rem; margin: 0;">No interviews scheduled yet.</p>';
+      if (app.interviews && app.interviews.length > 0) {
+        interviewsHtml = app.interviews.map(int => `
+          <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <strong style="color: #c084fc; font-size: 0.88rem; display: flex; align-items: center; gap: 4px;">
+                <span class="material-icons" style="font-size: 16px;">event</span> ${int.date} at ${int.time}
+              </strong>
+              <span class="badge badge-interview_scheduled" style="font-size: 0.7rem; text-transform: uppercase;">${int.mode}</span>
+            </div>
+            ${int.notes ? `<div style="font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;"><strong>Instructions / Link:</strong> ${int.notes}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      const bodyHtml = `
+        <div style="max-height: 70vh; overflow-y: auto; padding-right: 4px;">
+          <!-- Candidate Overview Header Card -->
+          <div style="display: flex; align-items: center; gap: 16px; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: var(--md-sys-radius-sm); padding: 16px; margin-bottom: 20px;">
+            <div class="candidate-avatar" style="width: 52px; height: 52px; font-size: 1.2rem; border-radius: 12px;">${initials}</div>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <h3 style="margin: 0; font-size: 1.2rem; color: var(--md-sys-color-on-surface);">${cand.name || 'Candidate #' + app.candidate_id}</h3>
+                <span class="badge badge-${app.status}" style="font-size: 0.8rem; padding: 4px 10px;">${app.status.replace('_', ' ').toUpperCase()}</span>
+              </div>
+              <div style="font-size: 0.86rem; color: var(--accent-cyan); font-weight: 600; margin-top: 4px;">
+                Applied for: ${job.title || 'General Position'} (${job.location || 'Remote'})
+              </div>
+              <div style="font-size: 0.82rem; color: var(--md-sys-color-on-surface-variant); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap;">
+                <span><span class="material-icons" style="font-size: 14px; vertical-align: -2px;">email</span> ${cand.email || 'N/A'}</span>
+                <span><span class="material-icons" style="font-size: 14px; vertical-align: -2px;">phone</span> ${cand.phone || 'N/A'}</span>
+                <span><span class="material-icons" style="font-size: 14px; vertical-align: -2px;">today</span> Applied: ${new Date(app.applied_date).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pipeline Stage Stepper -->
+          ${stepperHtml}
+
+          <!-- ATS Compatibility & Skill Match Analysis -->
+          <div class="dossier-section" style="margin-bottom: 20px; padding: 16px; border-radius: 8px; background: rgba(0, 240, 255, 0.04); border: 1px solid rgba(0, 240, 255, 0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div style="font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span class="material-icons" style="font-size: 18px;">auto_awesome</span> Automated ATS Compatibility
+              </div>
+              <div>
+                ${getAtsBadge(app.ats_match)}
+              </div>
+            </div>
+
+            <!-- Match Score Meter -->
+            <div style="margin-bottom: 14px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-family: var(--font-mono); color: var(--md-sys-color-on-surface-variant); margin-bottom: 4px;">
+                <span>Role Match Confidence: <strong style="color: var(--md-sys-color-on-surface);">${(app.ats_match && app.ats_match.score) || 0}%</strong></span>
+                <span>Rating: <strong style="color: var(--md-sys-color-on-surface);">${(app.ats_match && app.ats_match.rating) || 'Low Match'}</strong></span>
+              </div>
+              <div style="height: 8px; background: var(--md-sys-color-outline); border-radius: 4px; overflow: hidden;">
+                <div style="height: 100%; width: ${(app.ats_match && app.ats_match.score) || 0}%; background: ${(app.ats_match && app.ats_match.score >= 80) ? '#10b981' : ((app.ats_match && app.ats_match.score >= 60) ? 'var(--accent-cyan)' : ((app.ats_match && app.ats_match.score >= 40) ? '#f59e0b' : '#ef4444'))}; border-radius: 4px;"></div>
+              </div>
+            </div>
+
+            <!-- Breakdown Grid -->
+            ${app.ats_match && app.ats_match.breakdown ? `
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;">
+                <div style="background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--md-sys-color-outline); text-align: center;">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin-bottom: 2px;">Skills Match</div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-cyan); font-family: var(--font-mono);">${app.ats_match.breakdown.skills_score}%</div>
+                </div>
+                <div style="background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--md-sys-color-outline); text-align: center;">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin-bottom: 2px;">Experience Level</div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: #10b981; font-family: var(--font-mono);">${app.ats_match.breakdown.experience_score}%</div>
+                </div>
+                <div style="background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--md-sys-color-outline); text-align: center;">
+                  <div style="font-size: 0.72rem; color: var(--md-sys-color-on-surface-variant); margin-bottom: 2px;">Role & Title Match</div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: #a855f7; font-family: var(--font-mono);">${app.ats_match.breakdown.role_score}%</div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Matched and Missing Skills Comparison -->
+            ${app.ats_match ? `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.8rem;">
+                <div>
+                  <div style="color: #10b981; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <span class="material-icons" style="font-size: 14px;">check_circle</span> Matched Skills (${app.ats_match.matched_skills ? app.ats_match.matched_skills.length : 0})
+                  </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    ${(app.ats_match.matched_skills && app.ats_match.matched_skills.length > 0) ? app.ats_match.matched_skills.map(s => `<span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); font-size: 0.7rem; padding: 2px 6px;">${s}</span>`).join('') : '<span class="text-muted" style="font-size: 0.75rem;">None matched yet</span>'}
+                  </div>
+                </div>
+                <div>
+                  <div style="color: #f59e0b; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <span class="material-icons" style="font-size: 14px;">help_outline</span> Missing Job Skills (${app.ats_match.missing_skills ? app.ats_match.missing_skills.length : 0})
+                  </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    ${(app.ats_match.missing_skills && app.ats_match.missing_skills.length > 0) ? app.ats_match.missing_skills.map(s => `<span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); font-size: 0.7rem; padding: 2px 6px;">${s}</span>`).join('') : '<span class="text-muted" style="font-size: 0.75rem;">No missing skills identified</span>'}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Education -->
+          <div class="dossier-section" style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--md-sys-color-outline);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">school</span> Academic Background & Education
+            </div>
+            <div style="font-size: 0.92rem; color: var(--md-sys-color-on-surface); line-height: 1.5;">
+              ${cand.education || '<span class="text-muted">No academic records provided.</span>'}
+            </div>
+          </div>
+
+          <!-- Experience -->
+          <div class="dossier-section" style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--md-sys-color-outline);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">work</span> Professional Experience
+            </div>
+            <div style="font-size: 0.92rem; color: var(--md-sys-color-on-surface); line-height: 1.6; white-space: pre-line;">
+              ${cand.experience || '<span class="text-muted">No professional experience summary provided.</span>'}
+            </div>
+          </div>
+
+          <!-- Skills -->
+          <div class="dossier-section" style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--md-sys-color-outline);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">psychology</span> Technical & Professional Skills
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              ${cand.skills && cand.skills.length > 0 ? cand.skills.map(s => `<span class="badge badge-skill" style="font-size: 0.78rem; padding: 4px 10px;">${s}</span>`).join('') : '<span class="text-muted">No specific skills listed.</span>'}
+            </div>
+          </div>
+
+          <!-- Resume Document -->
+          <div class="dossier-section" style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--md-sys-color-outline);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">description</span> Attached Resume / CV
+            </div>
+            <div>
+              ${cand.resume_url ? `
+                <a href="${cand.resume_url}" target="_blank" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                  <span class="material-icons icon-sm">download</span> Open Resume PDF / Document
+                </a>
+              ` : `<span class="badge badge-draft">Candidate has not uploaded a resume</span>`}
+            </div>
+          </div>
+
+          <!-- Recruiter Remarks / Notes -->
+          <div class="dossier-section" style="margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--md-sys-color-outline);">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">comment</span> Internal Recruiter Remarks
+            </div>
+            <div style="font-size: 0.88rem; color: var(--md-sys-color-on-surface-variant); background: var(--bg-surface); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--md-sys-color-outline);">
+              ${app.recruiter_remarks || '<span class="text-muted">No recruiter notes entered yet.</span>'}
+            </div>
+          </div>
+
+          <!-- Interview Schedule Record -->
+          <div class="dossier-section">
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span class="material-icons" style="font-size: 15px;">event</span> Scheduled Interview Sessions
+            </div>
+            <div>
+              ${interviewsHtml}
+            </div>
+          </div>
+
+          <!-- Formal Job Offer Section -->
+          ${(app.status === 'selected' || app.offer_letter) ? `
+            <div class="dossier-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline);">
+              <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent-cyan); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span class="material-icons" style="font-size: 15px;">local_offer</span> Formal Job Offer
+                </span>
+                <button class="btn btn-secondary btn-sm" onclick="modal.close(); openOfferModal(${app.id})" style="padding: 2px 8px; font-size: 0.74rem;">
+                  ${app.offer_letter ? 'Edit Offer Letter' : 'Issue Offer Letter'}
+                </button>
+              </div>
+              ${app.offer_letter ? `
+                <div style="background: var(--bg-surface); border: 1px solid var(--md-sys-color-outline); border-radius: 6px; padding: 12px 14px; font-size: 0.86rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span class="text-muted">Offered Position:</span> <strong>${app.offer_letter.position_title}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span class="text-muted">Compensation:</span> <strong style="color: var(--accent-cyan); font-family: var(--font-mono);">${app.offer_letter.salary}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span class="text-muted">Proposed Start Date:</span> <strong>${app.offer_letter.joining_date}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span class="text-muted">Offer Status:</span>
+                    <span class="badge badge-${app.offer_letter.status === 'accepted' ? 'selected' : (app.offer_letter.status === 'declined' ? 'rejected' : 'shortlisted')}" style="text-transform: uppercase; font-size: 0.7rem;">
+                      ${app.offer_letter.status}
+                    </span>
+                  </div>
+                  ${app.offer_letter.document_url ? `
+                    <div style="margin-top: 8px; border-top: 1px solid var(--md-sys-color-outline); padding-top: 8px;">
+                      <a href="${app.offer_letter.document_url}" target="_blank" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;">
+                        <span class="material-icons" style="font-size: 14px;">description</span> Attached Document
+                      </a>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : `
+                <p class="text-muted" style="margin: 0; font-size: 0.85rem;">Candidate is selected. Click "Issue Offer Letter" above to draft and send official offer.</p>
+              `}
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      const modal = window.Modal.create({
+        title: `Candidate Dossier — ${cand.name || 'Candidate'}`,
+        bodyHtml: bodyHtml,
+        cancelText: 'Close',
+        confirmText: canSchedule ? 'Schedule Interview' : ((app.status === 'selected' || app.offer_letter) ? (app.offer_letter ? 'Review / Edit Offer' : 'Issue Offer Letter') : (isTerminal ? '' : 'Update Status')),
+        onConfirm: canSchedule ? () => {
+          modal.close();
+          openScheduleModal(app.id, cand.name || 'Candidate');
+          return false;
+        } : ((app.status === 'selected' || app.offer_letter) ? () => {
+          modal.close();
+          openOfferModal(app.id);
+          return false;
+        } : (!isTerminal ? () => {
+          modal.close();
+          openStatusModal(app.id, app.status);
+          return false;
+        } : null))
+      });
+    }
+
+    /**
+     * Open Status Transition Modal (State Machine Enforced)
+     */
+    function openStatusModal(appId, currentStatus) {
+      const allowedNext = ALLOWED_TRANSITIONS[currentStatus] || [];
+      if (allowedNext.length === 0) {
+        window.Toast.warning("This application is in a terminal stage and cannot be altered.");
+        return;
+      }
+
+      const optionsHtml = allowedNext.map(st => `
+        <option value="${st}">${st.replace('_', ' ').toUpperCase()}</option>
+      `).join('');
+
+      const bodyHtml = `
+        <div class="form-group">
+          <label class="form-label">Current Pipeline Status:</label>
+          <input type="text" class="form-control" value="${currentStatus.replace('_', ' ').toUpperCase()}" disabled>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="target-status">Next Allowed Stage (State Machine Enforced):</label>
+          <select id="target-status" class="form-select">
+            ${optionsHtml}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recruiter-remarks">Recruiter Remarks / Feedback (Optional):</label>
+          <textarea id="recruiter-remarks" class="form-control" rows="3" placeholder="Notes explaining the stage progression or candidate evaluation..."></textarea>
+        </div>
+      `;
+
+      window.Modal.create({
+        title: 'Advance Candidate Pipeline Stage',
+        bodyHtml: bodyHtml,
+        confirmText: 'Advance Stage',
+        onConfirm: async (backdrop) => {
+          const targetStatus = backdrop.querySelector('#target-status').value;
+          const remarks = backdrop.querySelector('#recruiter-remarks').value.trim();
+
+          try {
+            await window.applicationsApi.updateStatus(appId, targetStatus, remarks);
+            window.Toast.success(`Candidate advanced to ${targetStatus.replace('_', ' ').toUpperCase()}!`);
+            loadApplicants(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    /**
+     * Open Interview Scheduling Modal
+     */
+    function openScheduleModal(appId, candidateName) {
+      const bodyHtml = `
+        <div style="margin-bottom: 12px;">
+          <p class="text-muted" style="margin: 0 0 14px 0; font-size: 0.88rem;">
+            Scheduling an interview for candidate <strong>${candidateName}</strong> will send an automated notification email to the candidate.
+          </p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="interview-date">Interview Date:</label>
+          <input type="date" id="interview-date" class="form-control" required min="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="interview-time">Interview Time:</label>
+          <input type="time" id="interview-time" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="interview-mode">Interview Mode:</label>
+          <select id="interview-mode" class="form-select">
+            <option value="online">Online (Google Meet / Zoom)</option>
+            <option value="in-person">In-Person (Office Campus)</option>
+            <option value="phone">Phone Screening</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="interview-notes">Meeting Link or Location Instructions:</label>
+          <textarea id="interview-notes" class="form-control" rows="3" placeholder="e.g. https://meet.google.com/xyz-abcd-efg or Conference Room 4B"></textarea>
+        </div>
+      `;
+
+      window.Modal.create({
+        title: `Schedule Interview — ${candidateName}`,
+        bodyHtml: bodyHtml,
+        confirmText: 'Schedule & Notify Candidate',
+        onConfirm: async (backdrop) => {
+          const date = backdrop.querySelector('#interview-date').value;
+          const time = backdrop.querySelector('#interview-time').value.trim();
+          const mode = backdrop.querySelector('#interview-mode').value;
+          const notes = backdrop.querySelector('#interview-notes').value.trim();
+
+          if (!date || !time) {
+            window.Toast.error("Please provide both an interview date and time.");
+            return false;
+          }
+
+          try {
+            await window.interviewsApi.scheduleInterview(appId, date, time, mode, notes);
+            window.Toast.success('Interview successfully scheduled! Candidate has been notified.');
+            loadApplicants(1);
+            return true;
+          } catch (err) {
+            window.Toast.error(err.message);
+            return false;
+          }
+        }
+      });
+    }
+
+    /**
+     * Set View Mode (Table View vs Ashby Kanban)
+     */
+    function setViewMode(mode) {
+      currentView = mode;
+      localStorage.setItem('recruiter_applicants_view', mode);
+
+      const tableBtn = document.getElementById('view-table-btn');
+      const kanbanBtn = document.getElementById('view-kanban-btn');
+      const tableView = document.getElementById('table-view-container');
+      const kanbanView = document.getElementById('kanban-view-container');
+
+      if (mode === 'table') {
+        tableView.style.display = 'block';
+        kanbanView.style.display = 'none';
+        tableBtn.classList.replace('btn-secondary', 'btn-primary');
+        kanbanBtn.classList.replace('btn-primary', 'btn-secondary');
+      } else {
+        tableView.style.display = 'none';
+        kanbanView.style.display = 'block';
+        kanbanBtn.classList.replace('btn-secondary', 'btn-primary');
+        tableBtn.classList.replace('btn-primary', 'btn-secondary');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || (user.role !== 'recruiter' && user.role !== 'admin')) {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      // Check URL parameters for pre-selected job_id or status
+      const urlParams = new URLSearchParams(window.location.search);
+      currentJobId = urlParams.get('job_id') || null;
+      const initialStatus = urlParams.get('status') || '';
+
+      if (initialStatus) {
+        document.getElementById('status-filter').value = initialStatus;
+      }
+
+      // Load Recruiter Jobs & Populate Dropdown
+      await loadRecruiterJobs();
+
+      // Initial Applicant Load
+      loadApplicants(1);
+
+      // Restore or set preferred view
+      setViewMode(currentView);
+
+      // View Toggle Listeners
+      document.getElementById('view-table-btn').addEventListener('click', () => setViewMode('table'));
+      document.getElementById('view-kanban-btn').addEventListener('click', () => setViewMode('kanban'));
+
+      // Job Filter Change Listener
+      document.getElementById('job-filter').addEventListener('change', (e) => {
+        currentJobId = e.target.value || null;
+        const newUrl = currentJobId ? `?job_id=${currentJobId}` : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+        loadApplicants(1);
+      });
+
+      // Status Filter Change Listener
+      document.getElementById('status-filter').addEventListener('change', () => {
+        loadApplicants(1);
+      });
+
+      // Sort Filter Change Listener
+      const sortSelect = document.getElementById('sort-filter');
+      if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+          loadApplicants(1);
+        });
+      }
+
+      // Metric Ribbon Quick-Filter Clicks
+      document.querySelectorAll('.pipeline-metric-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const status = card.getAttribute('data-filter-status');
+          const statusSelect = document.getElementById('status-filter');
+          if (statusSelect.value === status) {
+            statusSelect.value = '';
+          } else {
+            statusSelect.value = status;
+          }
+          loadApplicants(1);
+        });
+      });
+
+      // Live Search with Debounce
+      document.getElementById('applicant-search').addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          loadApplicants(1);
+        }, 300);
+      });
+
+      // Reset Filters Listener
+      document.getElementById('reset-filters-btn').addEventListener('click', () => {
+        currentJobId = null;
+        document.getElementById('job-filter').value = '';
+        document.getElementById('status-filter').value = '';
+        document.getElementById('applicant-search').value = '';
+        const sFilter = document.getElementById('sort-filter');
+        if (sFilter) sFilter.value = 'newest';
+        window.history.replaceState({}, '', window.location.pathname);
+        loadApplicants(1);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/js/utils/theme-init.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Profile & Resume - Recruitment ATS</title>
+  <link rel="stylesheet" href="/css/material-theme.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <main class="container" style="max-width: 800px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h2>My Candidate Profile</h2>
+        <p class="text-muted">Keep your skills and resume up-to-date so recruiters can find you.</p>
+      </div>
+      <a href="/pages/candidate/dashboard.html" class="btn btn-secondary btn-sm">&larr; Back to Dashboard</a>
+    </div>
+
+    <!-- Resume Upload Card -->
+    <div class="card" style="margin-bottom: 24px;">
+      <h3 style="margin-bottom: 12px;">Resume Document</h3>
+      <p class="text-muted" style="margin-bottom: 16px;">Upload your resume in PDF or Word format (.pdf, .docx, .doc - max 10MB).</p>
+
+      <div id="current-resume-info" style="margin-bottom: 16px; padding: 16px; background: var(--bg-surface-glass); border-radius: var(--md-sys-radius-sm); border: 1px dashed var(--md-sys-color-outline);">
+        <span class="text-muted">Checking uploaded resume...</span>
+      </div>
+
+      <form id="resume-form" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <input type="file" id="resume-file" class="form-control" accept=".pdf,.docx,.doc" style="max-width: 400px;" required>
+        <button type="submit" id="upload-btn" class="btn btn-primary">Upload Resume</button>
+      </form>
+    </div>
+
+    <!-- Profile Details Card -->
+    <div class="card">
+      <h3 style="margin-bottom: 16px;">Personal & Professional Details</h3>
+      <form id="profile-form">
+        <div class="grid grid-cols-2">
+          <div class="form-group">
+            <label class="form-label" for="name">Full Name</label>
+            <input type="text" id="name" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="phone">Phone Number</label>
+            <input type="tel" id="phone" class="form-control" placeholder="+1 (555) 000-0000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="skills">Key Skills (Comma-separated)</label>
+          <input type="text" id="skills" class="form-control" placeholder="Python, Django, PostgreSQL, Docker, AWS">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="experience">Work Experience Summary</label>
+          <textarea id="experience" class="form-control" placeholder="Summary of your previous roles, projects, and years of experience..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="education">Education Background</label>
+          <textarea id="education" class="form-control" placeholder="Degrees, universities, certifications, etc..."></textarea>
+        </div>
+
+        <button type="submit" id="save-profile-btn" class="btn btn-primary" style="margin-top: 8px;">Save Changes</button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 Recruitment ATS.</p>
+  </footer>
+
+  <script src="/js/api/client.js"></script>
+  <script src="/js/api/auth.js"></script>
+  <script src="/js/api/candidates.js"></script>
+  <script src="/js/components/toast.js"></script>
+  <script src="/js/components/navbar.js"></script>
+  <script>
+    async function loadProfile() {
+      try {
+        const res = await window.candidatesApi.getProfile();
+        const profile = res.data.profile;
+
+        document.getElementById('name').value = profile.name || '';
+        document.getElementById('phone').value = profile.phone || '';
+        document.getElementById('skills').value = profile.skills_raw || '';
+        document.getElementById('experience').value = profile.experience || '';
+        document.getElementById('education').value = profile.education || '';
+
+        const resumeDiv = document.getElementById('current-resume-info');
+        if (profile.resume_url) {
+          const resumeFileName = profile.resume_url.split('/').pop();
+          resumeDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.25); display: flex; align-items: center; justify-content: center;">
+                  <span class="material-icons" style="color: var(--accent-cyan); font-size: 20px;">description</span>
+                </div>
+                <div>
+                  <div style="font-weight: 700; color: var(--md-sys-color-on-surface); font-size: 0.92rem;">Active Resume on File</div>
+                  <div class="text-muted" style="font-size: 0.78rem;">${resumeFileName}</div>
+                </div>
+              </div>
+              <a href="${profile.resume_url}" target="_blank" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; padding: 6px 14px;">
+                <span class="material-icons icon-sm">visibility</span> View / Download Resume &rarr;
+              </a>
+            </div>
+          `;
+        } else {
+          resumeDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; color: var(--md-sys-color-on-surface-variant);">
+              <span class="material-icons icon-sm" style="color: var(--accent-cyan);">info</span>
+              <span>No resume uploaded yet. Please attach your resume document below.</span>
+            </div>
+          `;
+        }
+      } catch (err) {
+        window.Toast.error("Failed to load profile: " + err.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = window.authApi.getCurrentUser();
+      if (!user || user.role !== 'candidate') {
+        window.location.href = '/pages/login.html';
+        return;
+      }
+
+      loadProfile();
+
+      document.getElementById('resume-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const uploadBtn = document.getElementById('upload-btn');
+        if (!file) return;
+
+        const validExts = ['.pdf', '.docx', '.doc'];
+        const fileName = file.name.toLowerCase();
+        const isValidExt = validExts.some(ext => fileName.endsWith(ext));
+        const isValidSize = file.size <= 10 * 1024 * 1024;
+
+        if (!isValidExt) {
+          if (window.Toast) window.Toast.error("Invalid format. Please upload PDF or Word document (.pdf, .docx, .doc)");
+          uploadBtn.disabled = true;
+          return;
+        }
+
+        if (!isValidSize) {
+          if (window.Toast) window.Toast.error("File size exceeds maximum 10MB limit.");
+          uploadBtn.disabled = true;
+          return;
+        }
+
+        uploadBtn.disabled = false;
+      });
+
+      document.getElementById('resume-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('resume-file');
+        const uploadBtn = document.getElementById('upload-btn');
+        if (!fileInput.files || fileInput.files.length === 0) return;
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerText = 'Uploading...';
+
+        try {
+          const res = await window.candidatesApi.uploadResume(fileInput.files[0]);
+          window.Toast.success(res.message);
+          fileInput.value = '';
+          loadProfile();
+        } catch (err) {
+          window.Toast.error(err.message);
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.innerText = 'Upload Resume';
+        }
+      });
+
+      document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('save-profile-btn');
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Saving...';
+
+        const payload = {
+          name: document.getElementById('name').value.trim(),
+          phone: document.getElementById('phone').value.trim(),
+          skills: document.getElementById('skills').value.trim(),
+          experience: document.getElementById('experience').value.trim(),
+          education: document.getElementById('education').value.trim()
+        };
+
+        try {
+          const res = await window.candidatesApi.updateProfile(payload);
+          window.Toast.success(res.message);
+          // Update stored user name if changed
+          const user = window.authApi.getCurrentUser();
+          if (user) {
+            user.name = payload.name;
+            window.apiClient.setUser(user);
+            window.renderNavbar();
+          }
+        } catch (err) {
+          window.Toast.error(err.message);
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.innerText = 'Save Changes';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
