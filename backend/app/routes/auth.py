@@ -76,7 +76,7 @@ def register():
             'requires_otp': True,
             'email': user.email
         }
-        if not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
+        if current_app.config.get('EXPOSE_DEV_OTP', True) or not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
             resp_data['dev_otp'] = otp_code
 
         return success_response(
@@ -113,7 +113,7 @@ def login():
             'email': user.email,
             'purpose': 'first_login_verify'
         }
-        if not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
+        if current_app.config.get('EXPOSE_DEV_OTP', True) or not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
             resp_data['dev_otp'] = otp_code
 
         return success_response(
@@ -202,7 +202,7 @@ def resend_otp():
             EmailService.send_otp_verification_email(user.id, user.name, user.email, otp_code)
 
     resp_data = {}
-    if user and (not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG')):
+    if user and (current_app.config.get('EXPOSE_DEV_OTP', True) or not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG')):
         resp_data['dev_otp'] = otp_code
 
     return success_response(data=resp_data, message="A new 6-digit verification code has been dispatched to your email.")
@@ -244,14 +244,17 @@ def forgot_password():
     if not email:
         return error_response("Email is required", 400)
 
+    resp_data = {'email': email}
     user = User.query.filter_by(email=email).first()
     if user:
         otp_code = user.generate_otp(purpose='password_reset', expires_minutes=15)
         db.session.commit()
         EmailService.send_password_reset_otp_email(user.id, user.name, user.email, otp_code)
+        if current_app.config.get('EXPOSE_DEV_OTP', True) or not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
+            resp_data['dev_otp'] = otp_code
 
     return success_response(
-        data={'email': email},
+        data=resp_data,
         message="If an account with that email exists, a password reset code has been sent."
     )
 

@@ -33,13 +33,16 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024)) # 10MB
     ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'pdf,docx,doc').split(','))
     
-    # SMTP Email Configuration
+    # SMTP & HTTP Email Configuration
     SMTP_HOST = os.getenv('SMTP_HOST', '')
     SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
     SMTP_USER = os.getenv('SMTP_USER', '')
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
     SMTP_FROM = os.getenv('SMTP_FROM', 'no-reply@ats-portal.com')
     SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'True').lower() in ('true', '1', 't')
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+    BREVO_API_KEY = os.getenv('BREVO_API_KEY', '')
+    EXPOSE_DEV_OTP = os.getenv('EXPOSE_DEV_OTP', 'True').lower() in ('true', '1', 't')
     
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:5000')
 

@@ -54,6 +54,39 @@ class EmailService:
                 smtp_from = app.config.get('SMTP_FROM', 'no-reply@ats-portal.com')
                 smtp_use_tls = app.config.get('SMTP_USE_TLS', True)
 
+                resend_api_key = app.config.get('RESEND_API_KEY')
+                if resend_api_key:
+                    try:
+                        import json
+                        import urllib.request
+                        payload = {
+                            "from": smtp_from if ('@' in smtp_from and not smtp_from.endswith('ats-portal.com')) else "ATS Portal <onboarding@resend.dev>",
+                            "to": [recipient],
+                            "subject": subject,
+                            "html": html_body
+                        }
+                        if text_body:
+                            payload["text"] = text_body
+
+                        req = urllib.request.Request(
+                            "https://api.resend.com/emails",
+                            data=json.dumps(payload).encode('utf-8'),
+                            headers={
+                                "Authorization": f"Bearer {resend_api_key}",
+                                "Content-Type": "application/json",
+                                "User-Agent": "ATS-Portal/1.0"
+                            },
+                            method="POST"
+                        )
+                        with urllib.request.urlopen(req, timeout=10) as resp:
+                            if resp.status in (200, 201):
+                                print(f"[EMAIL SERVICE - RESEND HTTPS] Email successfully sent to {recipient}")
+                                logger.info(f"Email successfully sent to {recipient} via Resend HTTPS")
+                                return
+                    except Exception as err:
+                        print(f"[EMAIL SERVICE - RESEND ERROR] Failed to send email via Resend: {str(err)}")
+                        logger.error(f"Resend HTTPS dispatch failed: {str(err)}")
+
                 # Dev fallback: print without emojis for cross-platform cmd/powershell safety
                 if not smtp_host or not smtp_user:
                     print("\n" + "=" * 65)
@@ -76,7 +109,7 @@ class EmailService:
                         msg.attach(MIMEText(html_body, 'html'))
 
                     print(f"[EMAIL SERVICE] Connecting to SMTP {smtp_host}:{smtp_port} for {recipient}...")
-                    server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+                    server = smtplib.SMTP(smtp_host, smtp_port, timeout=8)
                     server.ehlo()
                     if smtp_use_tls:
                         server.starttls()
@@ -89,6 +122,7 @@ class EmailService:
                     logger.info(f"Email successfully sent to {recipient}")
                 except Exception as e:
                     print(f"[EMAIL SERVICE ERROR] Failed to send email to {recipient}: {str(e)}")
+                    print("[EMAIL SERVICE NOTE] Render Free Tier blocks outbound SMTP ports 25, 465, and 587.")
                     logger.error(f"Failed to send email to {recipient}: {str(e)}")
 
         thread = threading.Thread(target=send)

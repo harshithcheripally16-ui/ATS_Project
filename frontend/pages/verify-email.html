@@ -122,6 +122,12 @@
         document.getElementById('manual-email').value = email;
       }
 
+      const codeParam = urlParams.get('code') || (email ? sessionStorage.getItem('pending_otp_' + email) : null);
+      if (codeParam) {
+        document.getElementById('manual-otp').value = codeParam;
+        window.Toast.info(`Verification code: ${codeParam}`);
+      }
+
       if (token) {
         doVerifyToken(token);
       } else {
