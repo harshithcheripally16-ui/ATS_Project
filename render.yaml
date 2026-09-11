@@ -17,3 +17,15 @@ services:
         generateValue: true
       - key: JWT_ACCESS_TOKEN_EXPIRES_HOURS
         value: "24"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "True"

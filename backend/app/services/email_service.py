@@ -75,15 +75,20 @@ class EmailService:
                     if html_body:
                         msg.attach(MIMEText(html_body, 'html'))
 
-                    server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+                    print(f"[EMAIL SERVICE] Connecting to SMTP {smtp_host}:{smtp_port} for {recipient}...")
+                    server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+                    server.ehlo()
                     if smtp_use_tls:
                         server.starttls()
+                        server.ehlo()
                     if smtp_user and smtp_password:
                         server.login(smtp_user, smtp_password)
                     server.sendmail(smtp_from, recipient, msg.as_string())
                     server.quit()
+                    print(f"[EMAIL SERVICE] Email successfully sent to {recipient}")
                     logger.info(f"Email successfully sent to {recipient}")
                 except Exception as e:
+                    print(f"[EMAIL SERVICE ERROR] Failed to send email to {recipient}: {str(e)}")
                     logger.error(f"Failed to send email to {recipient}: {str(e)}")
 
         thread = threading.Thread(target=send)

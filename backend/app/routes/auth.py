@@ -1,5 +1,5 @@
 import re
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
 from ..models import db, User, CandidateProfile
 from ..services import EmailService
 from ..utils import (
@@ -71,12 +71,16 @@ def register():
 
         EmailService.send_otp_verification_email(user.id, user.name, user.email, otp_code)
 
+        resp_data = {
+            'user': user.to_dict(),
+            'requires_otp': True,
+            'email': user.email
+        }
+        if not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
+            resp_data['dev_otp'] = otp_code
+
         return success_response(
-            data={
-                'user': user.to_dict(),
-                'requires_otp': True,
-                'email': user.email
-            },
+            data=resp_data,
             message="Registration successful! A 6-digit verification code has been sent to your email.",
             status_code=201
         )
@@ -104,12 +108,16 @@ def login():
         db.session.commit()
         EmailService.send_otp_verification_email(user.id, user.name, user.email, otp_code)
 
+        resp_data = {
+            'requires_otp': True,
+            'email': user.email,
+            'purpose': 'first_login_verify'
+        }
+        if not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG'):
+            resp_data['dev_otp'] = otp_code
+
         return success_response(
-            data={
-                'requires_otp': True,
-                'email': user.email,
-                'purpose': 'first_login_verify'
-            },
+            data=resp_data,
             message="Account verification required. A 6-digit OTP code has been sent to your email."
         )
 
@@ -193,7 +201,11 @@ def resend_otp():
             db.session.commit()
             EmailService.send_otp_verification_email(user.id, user.name, user.email, otp_code)
 
-    return success_response(message="A new 6-digit verification code has been dispatched to your email.")
+    resp_data = {}
+    if user and (not current_app.config.get('SMTP_HOST') or current_app.config.get('FLASK_DEBUG')):
+        resp_data['dev_otp'] = otp_code
+
+    return success_response(data=resp_data, message="A new 6-digit verification code has been dispatched to your email.")
 
 
 @auth_bp.route('/verify-email', methods=['POST'])

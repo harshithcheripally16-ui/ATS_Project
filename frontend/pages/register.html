@@ -94,9 +94,14 @@
           alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
           alertBox.style.color = '#34d399';
           alertBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          const devOtpNotice = (res.data && res.data.dev_otp)
+            ? `<div style="margin: 8px 0; padding: 6px 10px; background: rgba(0, 240, 255, 0.15); border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 6px; font-weight: 700; color: #38bdf8;">Demo Verification Code: ${res.data.dev_otp}</div>`
+            : '';
+
           alertBox.innerHTML = `
             <strong>${res.message}</strong>
-            <p style="margin: 8px 0 12px 0; font-size: 0.88rem; color: #a7f3d0;">A 6-digit OTP code has been sent to <strong>${payload.email}</strong> via SMTP.</p>
+            <p style="margin: 8px 0 12px 0; font-size: 0.88rem; color: #a7f3d0;">A 6-digit OTP code has been sent to <strong>${payload.email}</strong>.</p>
+            ${devOtpNotice}
             <a href="/pages/login.html?verify_email=${encodeURIComponent(payload.email)}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
               <span class="material-icons icon-sm">verified</span> Enter OTP to Sign In &rarr;
             </a>
@@ -106,7 +111,7 @@
           submitBtn.innerText = 'Create Account';
           setTimeout(() => {
             window.location.href = `/pages/login.html?verify_email=${encodeURIComponent(payload.email)}`;
-          }, 2500);
+          }, res.data && res.data.dev_otp ? 3500 : 2500);
         } catch (err) {
           alertBox.style.display = 'block';
           alertBox.style.background = 'rgba(239, 68, 68, 0.15)';

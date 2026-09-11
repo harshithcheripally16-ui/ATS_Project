@@ -41,6 +41,13 @@
           <button type="submit" id="manual-verify-btn" class="btn btn-primary" style="width: 100%; margin-top: 6px;">
             <span class="material-icons icon-sm">check_circle</span> Verify Account
           </button>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.85rem;">
+            <span class="text-muted" style="font-size: 0.8rem;">Didn't receive code?</span>
+            <button type="button" id="resend-otp-btn" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; padding: 0; font-weight: 600;">
+              Resend OTP
+            </button>
+          </div>
         </form>
       </div>
 
@@ -55,6 +62,32 @@
   <script src="/js/components/toast.js"></script>
   <script src="/js/components/navbar.js"></script>
   <script>
+    let resendTimer = null;
+    let resendSeconds = 0;
+
+    function startResendCountdown(seconds) {
+      resendSeconds = seconds;
+      const resendBtn = document.getElementById('resend-otp-btn');
+      if (!resendBtn) return;
+      resendBtn.disabled = true;
+      resendBtn.style.opacity = '0.6';
+      resendBtn.style.cursor = 'not-allowed';
+
+      if (resendTimer) clearInterval(resendTimer);
+      resendTimer = setInterval(() => {
+        resendSeconds--;
+        if (resendSeconds <= 0) {
+          clearInterval(resendTimer);
+          resendBtn.disabled = false;
+          resendBtn.innerText = 'Resend OTP';
+          resendBtn.style.opacity = '1';
+          resendBtn.style.cursor = 'pointer';
+        } else {
+          resendBtn.innerText = `Resend in ${resendSeconds}s`;
+        }
+      }, 1000);
+    }
+
     async function doVerifyToken(token) {
       const spinner = document.getElementById('status-spinner');
       const resultBox = document.getElementById('result-box');
@@ -94,6 +127,32 @@
       } else {
         document.getElementById('status-spinner').style.display = 'none';
         document.getElementById('manual-form').style.display = 'block';
+      }
+
+      const resendBtn = document.getElementById('resend-otp-btn');
+      if (resendBtn) {
+        resendBtn.addEventListener('click', async () => {
+          const em = document.getElementById('manual-email').value.trim();
+          if (!em) {
+            window.Toast.warning("Please enter your account email first.");
+            return;
+          }
+          resendBtn.disabled = true;
+          resendBtn.innerText = 'Sending...';
+          try {
+            const res = await window.authApi.resendOtp(em, 'first_login_verify');
+            window.Toast.success(res.message || "A new 6-digit OTP has been sent to your email!");
+            if (res.data && res.data.dev_otp) {
+              document.getElementById('manual-otp').value = res.data.dev_otp;
+              window.Toast.info(`Verification code: ${res.data.dev_otp}`);
+            }
+            startResendCountdown(60);
+          } catch (err) {
+            window.Toast.error(err.message || "Failed to resend OTP");
+            resendBtn.disabled = false;
+            resendBtn.innerText = 'Resend OTP';
+          }
+        });
       }
 
       document.getElementById('otp-verify-form').addEventListener('submit', async (e) => {

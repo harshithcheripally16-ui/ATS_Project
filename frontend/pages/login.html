@@ -188,6 +188,10 @@
           if (res.data && res.data.requires_otp) {
             window.Toast.info(res.message || 'OTP verification required.');
             showOtpView(res.data.email || email);
+            if (res.data.dev_otp) {
+              document.getElementById('otp-code').value = res.data.dev_otp;
+              window.Toast.info(`Demo Code: ${res.data.dev_otp}`, 8000);
+            }
             submitBtn.disabled = false;
             submitBtn.innerText = 'Sign In';
             return;
@@ -244,8 +248,12 @@
       document.getElementById('resend-otp-btn').addEventListener('click', async () => {
         if (resendSeconds > 0) return;
         try {
-          await window.authApi.resendOtp(pendingOtpEmail, 'first_login_verify');
+          const res = await window.authApi.resendOtp(pendingOtpEmail, 'first_login_verify');
           window.Toast.success('A new 6-digit OTP has been sent to your email!');
+          if (res && res.data && res.data.dev_otp) {
+            document.getElementById('otp-code').value = res.data.dev_otp;
+            window.Toast.info(`Demo Code: ${res.data.dev_otp}`, 8000);
+          }
           startResendCountdown(60);
         } catch (err) {
           window.Toast.error(err.message || 'Failed to resend OTP.');
