@@ -8,6 +8,10 @@ env/
 build/
 develop-eggs/
 dist/
+!frontend/dist/
+!frontend/dist/**
+node_modules/
+frontend/node_modules/
 downloads/
 eggs/
 .eggs/

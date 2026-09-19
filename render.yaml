@@ -2,7 +2,7 @@ services:
   - type: web
     name: ats-recruitment-portal
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && (which npm > /dev/null 2>&1 && npm --prefix frontend install && npm --prefix frontend run build || echo "Using prebuilt frontend dist")
     startCommand: gunicorn run:app
     envVars:
       - key: PYTHON_VERSION

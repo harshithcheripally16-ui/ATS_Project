@@ -44,13 +44,25 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(uploads_bp)
 
-    # ---------------- Static & Frontend Serving ----------------
+    # ---------------- Static & Frontend Serving (React SPA Support) ----------------
+    dist_dir = os.path.join(frontend_dir, 'dist')
+
     @app.route('/')
     def index():
+        if os.path.exists(os.path.join(dist_dir, 'index.html')):
+            return send_from_directory(dist_dir, 'index.html')
         return send_from_directory(os.path.join(frontend_dir, 'pages'), 'index.html')
+
+    @app.route('/assets/<path:filename>')
+    def serve_assets(filename):
+        if os.path.exists(os.path.join(dist_dir, 'assets', filename)):
+            return send_from_directory(os.path.join(dist_dir, 'assets'), filename)
+        return send_from_directory(os.path.join(frontend_dir, 'assets'), filename)
 
     @app.route('/pages/<path:filename>')
     def serve_pages(filename):
+        if os.path.exists(os.path.join(dist_dir, 'index.html')):
+            return send_from_directory(dist_dir, 'index.html')
         return send_from_directory(os.path.join(frontend_dir, 'pages'), filename)
 
     @app.route('/css/<path:filename>')
@@ -61,9 +73,15 @@ def create_app(config_class=Config):
     def serve_js(filename):
         return send_from_directory(os.path.join(frontend_dir, 'js'), filename)
 
-    @app.route('/assets/<path:filename>')
-    def serve_assets(filename):
-        return send_from_directory(os.path.join(frontend_dir, 'assets'), filename)
+    @app.route('/<path:path>')
+    def catch_all(path):
+        if os.path.exists(os.path.join(dist_dir, path)):
+            return send_from_directory(dist_dir, path)
+        if path.startswith('api/') or path.startswith('uploads/'):
+            return error_response("The requested resource or endpoint was not found", 404)
+        if os.path.exists(os.path.join(dist_dir, 'index.html')):
+            return send_from_directory(dist_dir, 'index.html')
+        return error_response("The requested resource or endpoint was not found", 404)
 
     # ---------------- Global Error Handlers ----------------
     @app.errorhandler(404)
