@@ -18,7 +18,9 @@ export default function AdminCategoriesPage() {
     setLoading(true);
     try {
       const res = await adminApi.listCategories();
-      setCategories(res.data || []);
+      const raw = res.data;
+      const list = Array.isArray(raw) ? raw : (raw?.categories || []);
+      setCategories(list);
     } catch (err) {
       toast.error('Failed to load categories: ' + err.message);
     } finally {

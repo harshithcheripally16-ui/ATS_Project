@@ -25,7 +25,8 @@ export default function PostJobPage() {
   useEffect(() => {
     adminApi.listCategories()
       .then(res => {
-        const cats = res.data || [];
+        const raw = res.data;
+        const cats = Array.isArray(raw) ? raw : (raw?.categories || []);
         setCategories(cats);
         if (cats.length > 0 && !categoryId) {
           setCategoryId(cats[0].id);

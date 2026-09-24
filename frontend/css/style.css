@@ -688,8 +688,8 @@
 
 /* Page Section Mount Fade Transition & Fixed Navbar Offset */
 body {
-  opacity: 0;
-  padding-top: 72px;
+  opacity: 1;
+  padding-top: 0;
   transition: opacity 0.3s ease-out;
 }
 body.page-fade-in {

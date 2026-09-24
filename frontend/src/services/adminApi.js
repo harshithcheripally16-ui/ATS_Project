@@ -30,7 +30,11 @@ export const adminApi = {
   },
 
   async listCategories() {
-    return apiClient.get('/admin/categories');
+    const res = await apiClient.get('/admin/categories');
+    if (res && res.data && Array.isArray(res.data.categories)) {
+      res.data = res.data.categories;
+    }
+    return res;
   },
 
   async createCategory(name, description = '') {

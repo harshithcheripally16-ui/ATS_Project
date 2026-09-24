@@ -6,7 +6,7 @@ import AtsScoreBadge from './AtsScoreBadge';
 import Modal from './Modal';
 
 export default function JobComparisonModal({ onApplyToJob }) {
-  const { selectedJobs, isModalOpen, closeModal, removeJob, clearComparison } = useJobComparison();
+  const { selectedJobs, isModalOpen, openModal, closeModal, removeJob, clearComparison } = useJobComparison();
   const { isAuthenticated, role, user } = useAuth();
   const navigate = useNavigate();
 
@@ -18,9 +18,11 @@ export default function JobComparisonModal({ onApplyToJob }) {
     .map(s => s.trim().toLowerCase())
     .filter(Boolean);
 
-  const renderSkillsChips = (skillsStr) => {
-    if (!skillsStr) return <span className="text-muted">None listed</span>;
-    const skillsList = skillsStr.split(',').map(s => s.trim()).filter(Boolean);
+  const renderSkillsChips = (skillsInput) => {
+    if (!skillsInput) return <span className="text-muted">None listed</span>;
+    const skillsList = Array.isArray(skillsInput)
+      ? skillsInput
+      : (typeof skillsInput === 'string' ? skillsInput.split(',').map(s => s.trim()).filter(Boolean) : []);
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
         {skillsList.map((skill, idx) => {
@@ -118,7 +120,7 @@ export default function JobComparisonModal({ onApplyToJob }) {
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            onClick={() => useJobComparison().openModal()}
+            onClick={openModal}
             style={{ borderRadius: '20px', padding: '6px 14px', fontSize: '0.82rem' }}
           >
             <span className="material-icons icon-sm">visibility</span> Compare Now

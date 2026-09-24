@@ -46,7 +46,9 @@ export default function JobDetailPage() {
   }
 
   const compared = isInComparison(job.id);
-  const skillsList = (job.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skillsList = Array.isArray(job.skills)
+    ? job.skills
+    : (typeof job.skills === 'string' ? job.skills.split(',').map(s => s.trim()).filter(Boolean) : []);
 
   return (
     <main className="container">

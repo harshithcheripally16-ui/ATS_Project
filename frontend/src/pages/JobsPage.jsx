@@ -27,7 +27,11 @@ export default function JobsPage() {
   // Load categories once
   useEffect(() => {
     adminApi.listCategories()
-      .then(res => setCategories(res.data || []))
+      .then(res => {
+        const raw = res.data;
+        const list = Array.isArray(raw) ? raw : (raw?.categories || []);
+        setCategories(list);
+      })
       .catch(err => console.warn('Failed to load categories:', err));
   }, []);
 
@@ -175,7 +179,9 @@ export default function JobsPage() {
           <div className="grid grid-cols-2" style={{ marginBottom: '32px' }}>
             {jobs.map(job => {
               const compared = isInComparison(job.id);
-              const skillsList = (job.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+              const skillsList = Array.isArray(job.skills)
+                ? job.skills
+                : (typeof job.skills === 'string' ? job.skills.split(',').map(s => s.trim()).filter(Boolean) : []);
 
               return (
                 <div
