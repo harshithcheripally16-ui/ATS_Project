@@ -13,10 +13,10 @@ export default function JobComparisonModal({ onApplyToJob }) {
   if (selectedJobs.length === 0) return null;
 
   // Compute skills overlap if candidate profile skills exist
-  const candSkills = (user?.candidate_profile?.skills || '')
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
+  const userSkills = user?.candidate_profile?.skills;
+  const candSkills = Array.isArray(userSkills)
+    ? userSkills.map(s => String(s).trim().toLowerCase()).filter(Boolean)
+    : (typeof userSkills === 'string' ? userSkills.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : []);
 
   const renderSkillsChips = (skillsInput) => {
     if (!skillsInput) return <span className="text-muted">None listed</span>;

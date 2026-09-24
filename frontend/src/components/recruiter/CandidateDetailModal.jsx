@@ -16,7 +16,9 @@ export default function CandidateDetailModal({
   const job = application.job || {};
   const ats = application.ats_match;
 
-  const skillsList = (cand.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+  const skillsList = Array.isArray(cand.skills)
+    ? cand.skills
+    : (typeof cand.skills === 'string' ? cand.skills.split(',').map(s => s.trim()).filter(Boolean) : []);
   const matchedSkills = ats?.matched_skills || [];
   const missingSkills = ats?.missing_skills || [];
 

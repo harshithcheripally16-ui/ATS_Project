@@ -42,8 +42,12 @@ export default function ApplyModal({ isOpen, onClose, job, onSuccess }) {
   const resumeFilename = hasResume ? profile.resume_url.split('/').pop() : '';
 
   // Calculate ATS match score preview
-  const candSkills = (profile.skills || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  const jobSkills = (job.skills || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const candSkills = Array.isArray(profile.skills)
+    ? profile.skills.map(s => String(s).trim().toLowerCase()).filter(Boolean)
+    : (typeof profile.skills === 'string' ? profile.skills.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : []);
+  const jobSkills = Array.isArray(job.skills)
+    ? job.skills.map(s => String(s).trim().toLowerCase()).filter(Boolean)
+    : (typeof job.skills === 'string' ? job.skills.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : []);
   let matchScore = null;
   let matchedSkills = [];
   if (jobSkills.length > 0 && candSkills.length > 0) {

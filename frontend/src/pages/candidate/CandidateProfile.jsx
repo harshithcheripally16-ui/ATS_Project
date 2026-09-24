@@ -22,7 +22,8 @@ export default function CandidateProfile() {
     candidateApi.getProfile()
       .then(res => {
         const prof = res.data?.profile || {};
-        setSkills(prof.skills || '');
+        const rawSkills = prof.skills_raw || (Array.isArray(prof.skills) ? prof.skills.join(', ') : (prof.skills || ''));
+        setSkills(rawSkills);
         setExperience(prof.experience || '');
         setEducation(prof.education || '');
         setPhone(prof.phone || user?.phone || '');
@@ -34,7 +35,9 @@ export default function CandidateProfile() {
       .finally(() => setLoading(false));
   }, [user, toast]);
 
-  const skillsList = skills ? skills.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const skillsList = Array.isArray(skills)
+    ? skills
+    : (typeof skills === 'string' && skills ? skills.split(',').map(s => s.trim()).filter(Boolean) : []);
 
   const handleAddSkill = () => {
     const trimmed = skillInput.trim();
@@ -57,8 +60,9 @@ export default function CandidateProfile() {
     e.preventDefault();
     setSaving(true);
     try {
+      const skillsStr = Array.isArray(skills) ? skills.join(', ') : (skills || '');
       await candidateApi.updateProfile({
-        skills,
+        skills: skillsStr,
         experience,
         education,
         phone
